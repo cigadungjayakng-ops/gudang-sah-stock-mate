@@ -12,32 +12,33 @@ import { toast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
-function CabangContent() {
-  const [cabang, setCabang] = useState<any[]>([]);
+function JenisStokMasukContent() {
+  const [jenisStokMasuk, setJenisStokMasuk] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialog, setEditDialog] = useState<any>(null);
   const [deleteDialog, setDeleteDialog] = useState<any>(null);
   const [name, setName] = useState("");
 
   useEffect(() => {
-    fetchCabang();
+    fetchJenisStokMasuk();
   }, []);
 
-  const fetchCabang = async () => {
-    const { data } = await supabase.from("cabang").select("*").order("created_at", { ascending: false });
-    if (data) setCabang(data);
+  const fetchJenisStokMasuk = async () => {
+    const { data } = await supabase.from("jenis_stok_masuk").select("*").order("created_at", { ascending: false });
+    if (data) setJenisStokMasuk(data);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from("cabang").insert({ name });
+    const { error } = await supabase.from("jenis_stok_masuk").insert({ name });
+    
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Berhasil", description: "Cabang berhasil ditambahkan" });
+      toast({ title: "Berhasil", description: "Jenis stok masuk berhasil ditambahkan" });
       setDialogOpen(false);
       setName("");
-      fetchCabang();
+      fetchJenisStokMasuk();
     }
   };
 
@@ -46,47 +47,47 @@ function CabangContent() {
     if (!editDialog) return;
 
     const { error } = await supabase
-      .from("cabang")
+      .from("jenis_stok_masuk")
       .update({ name })
       .eq("id", editDialog.id);
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Berhasil", description: "Cabang berhasil diperbarui" });
+      toast({ title: "Berhasil", description: "Jenis stok masuk berhasil diperbarui" });
       setEditDialog(null);
       setName("");
-      fetchCabang();
+      fetchJenisStokMasuk();
     }
   };
 
   const handleDelete = async () => {
     if (!deleteDialog) return;
 
-    // Check if cabang is used in stock_in or stock_out
-    const [stockInCheck, stockOutCheck] = await Promise.all([
-      supabase.from("stock_in").select("id").eq("cabang_id", deleteDialog.id).limit(1),
-      supabase.from("stock_out").select("id").eq("cabang_id", deleteDialog.id).limit(1),
-    ]);
+    // Check if jenis is used in stock_in
+    const { data: stockInData } = await supabase
+      .from("stock_in")
+      .select("id")
+      .eq("jenis_stok_masuk_id", deleteDialog.id)
+      .limit(1);
 
-    if ((stockInCheck.data && stockInCheck.data.length > 0) || 
-        (stockOutCheck.data && stockOutCheck.data.length > 0)) {
+    if (stockInData && stockInData.length > 0) {
       toast({
         title: "Tidak dapat menghapus",
-        description: "Cabang ini sedang digunakan dalam transaksi",
+        description: "Jenis stok masuk ini sedang digunakan dalam transaksi",
         variant: "destructive",
       });
       setDeleteDialog(null);
       return;
     }
 
-    const { error } = await supabase.from("cabang").delete().eq("id", deleteDialog.id);
+    const { error } = await supabase.from("jenis_stok_masuk").delete().eq("id", deleteDialog.id);
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Berhasil", description: "Cabang berhasil dihapus" });
-      fetchCabang();
+      toast({ title: "Berhasil", description: "Jenis stok masuk berhasil dihapus" });
+      fetchJenisStokMasuk();
     }
     setDeleteDialog(null);
   };
@@ -95,18 +96,18 @@ function CabangContent() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Kelola Cabang</h1>
-          <p className="text-muted-foreground">Tambah dan kelola cabang</p>
+          <h1 className="text-3xl font-bold">Jenis Stok Masuk</h1>
+          <p className="text-muted-foreground">Kelola jenis stok masuk</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" />Tambah Cabang</Button>
+            <Button><Plus className="mr-2 h-4 w-4" />Tambah Jenis</Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Tambah Cabang Baru</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>Tambah Jenis Stok Masuk</DialogTitle></DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Nama Cabang</Label>
+                <Label htmlFor="name">Nama Jenis</Label>
                 <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
               </div>
               <Button type="submit" className="w-full">Simpan</Button>
@@ -114,31 +115,32 @@ function CabangContent() {
           </DialogContent>
         </Dialog>
       </div>
+
       <Card className="shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nama Cabang</TableHead>
+              <TableHead>Nama Jenis</TableHead>
               <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {cabang.map((c) => (
-              <TableRow key={c.id}>
-                <TableCell>{c.name}</TableCell>
+            {jenisStokMasuk.map((jenis) => (
+              <TableRow key={jenis.id}>
+                <TableCell>{jenis.name}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => {
-                        setEditDialog(c);
-                        setName(c.name);
+                        setEditDialog(jenis);
+                        setName(jenis.name);
                       }}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => setDeleteDialog(c)}>
+                    <Button variant="ghost" size="icon" onClick={() => setDeleteDialog(jenis)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
@@ -151,10 +153,10 @@ function CabangContent() {
 
       <Dialog open={!!editDialog} onOpenChange={() => { setEditDialog(null); setName(""); }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Edit Cabang</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Edit Jenis Stok Masuk</DialogTitle></DialogHeader>
           <form onSubmit={handleEdit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-name">Nama Cabang</Label>
+              <Label htmlFor="edit-name">Nama Jenis</Label>
               <Input id="edit-name" value={name} onChange={(e) => setName(e.target.value)} required />
             </div>
             <Button type="submit" className="w-full">Update</Button>
@@ -167,7 +169,7 @@ function CabangContent() {
           <AlertDialogHeader>
             <AlertDialogTitle>Konfirmasi Hapus</AlertDialogTitle>
             <AlertDialogDescription>
-              Apakah Anda yakin ingin menghapus cabang "{deleteDialog?.name}"?
+              Apakah Anda yakin ingin menghapus jenis stok masuk "{deleteDialog?.name}"?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -180,10 +182,10 @@ function CabangContent() {
   );
 }
 
-export default function Cabang() {
+export default function JenisStokMasuk() {
   return (
     <ProtectedRoute requireRole="superadmin">
-      <DashboardLayout><CabangContent /></DashboardLayout>
+      <DashboardLayout><JenisStokMasukContent /></DashboardLayout>
     </ProtectedRoute>
   );
 }

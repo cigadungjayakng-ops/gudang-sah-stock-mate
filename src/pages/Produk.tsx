@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -19,12 +20,15 @@ interface Product {
   name: string;
   variants: any;
   user_id: string;
+  profiles?: { name: string };
 }
 
 function ProdukContent() {
+  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialog, setEditDialog] = useState<Product | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<string | null>(null);
   const [formData, setFormData] = useState({ name: "", variants: "" });
   const { user, userRole } = useAuth();
@@ -36,10 +40,12 @@ function ProdukContent() {
   const fetchProducts = async () => {
     if (!user) return;
 
-    const query = supabase.from("products").select("*");
+    let query;
     
     if (userRole === "user") {
-      query.eq("user_id", user.id);
+      query = supabase.from("products").select("*").eq("user_id", user.id);
+    } else {
+      query = supabase.from("products").select("*, profiles(name)");
     }
 
     const { data, error } = await query;
@@ -88,7 +94,48 @@ function ProdukContent() {
     }
   };
 
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editDialog) return;
+
+    const variants = formData.variants
+      .split(",")
+      .map((v) => v.trim())
+      .filter((v) => v);
+
+    const { error } = await supabase
+      .from("products")
+      .update({ name: formData.name, variants: variants })
+      .eq("id", editDialog.id);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Berhasil", description: "Produk berhasil diperbarui" });
+      setEditDialog(null);
+      setFormData({ name: "", variants: "" });
+      fetchProducts();
+    }
+  };
+
   const handleDelete = async (id: string) => {
+    // Check if product has history
+    const [stockInCheck, stockOutCheck] = await Promise.all([
+      supabase.from("stock_in").select("id").eq("product_id", id).limit(1),
+      supabase.from("stock_out").select("id").eq("product_id", id).limit(1),
+    ]);
+
+    if ((stockInCheck.data && stockInCheck.data.length > 0) || 
+        (stockOutCheck.data && stockOutCheck.data.length > 0)) {
+      toast({
+        title: "Tidak dapat menghapus",
+        description: "Produk ini tidak dapat dihapus karena memiliki riwayat transaksi",
+        variant: "destructive",
+      });
+      setDeleteDialog(null);
+      return;
+    }
+
     const { error } = await supabase.from("products").delete().eq("id", id);
 
     if (error) {
@@ -196,15 +243,29 @@ function ProdukContent() {
                       <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
-                  {!canEdit && <TableCell>User</TableCell>}
+                  {!canEdit && <TableCell>{product.profiles?.name || "-"}</TableCell>}
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => navigate(`/produk/${product.id}/history`)}
+                      >
                         <History className="h-4 w-4" />
                       </Button>
                       {canEdit && (
                         <>
-                          <Button variant="ghost" size="icon">
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => {
+                              setEditDialog(product);
+                              setFormData({
+                                name: product.name,
+                                variants: product.variants?.join(", ") || ""
+                              });
+                            }}
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button
@@ -224,6 +285,23 @@ function ProdukContent() {
           </TableBody>
         </Table>
       </Card>
+
+      <Dialog open={!!editDialog} onOpenChange={() => { setEditDialog(null); setFormData({ name: "", variants: "" }); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Produk</DialogTitle></DialogHeader>
+          <form onSubmit={handleEdit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Nama Produk</Label>
+              <Input id="edit-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-variants">Varian (pisahkan dengan koma)</Label>
+              <Input id="edit-variants" placeholder="Merah, Biru, Hijau" value={formData.variants} onChange={(e) => setFormData({ ...formData, variants: e.target.value })} />
+            </div>
+            <Button type="submit" className="w-full">Update</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deleteDialog} onOpenChange={() => setDeleteDialog(null)}>
         <AlertDialogContent>

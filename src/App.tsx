@@ -7,11 +7,14 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Produk from "./pages/Produk";
+import ProductHistory from "./pages/ProductHistory";
 import StokMasuk from "./pages/StokMasuk";
 import StokKeluar from "./pages/StokKeluar";
 import Laporan from "./pages/Laporan";
 import AdminUsers from "./pages/admin/Users";
 import AdminCabang from "./pages/admin/Cabang";
+import AdminJenisStokMasuk from "./pages/admin/JenisStokMasuk";
+import AdminJenisStokKeluar from "./pages/admin/JenisStokKeluar";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,11 +30,14 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/produk" element={<Produk />} />
+            <Route path="/produk/:productId/history" element={<ProductHistory />} />
             <Route path="/stok-masuk" element={<StokMasuk />} />
             <Route path="/stok-keluar" element={<StokKeluar />} />
             <Route path="/laporan" element={<Laporan />} />
             <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/admin/cabang" element={<AdminCabang />} />
+            <Route path="/admin/jenis-stok-masuk" element={<AdminJenisStokMasuk />} />
+            <Route path="/admin/jenis-stok-keluar" element={<AdminJenisStokKeluar />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

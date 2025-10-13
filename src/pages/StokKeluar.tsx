@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Plus, AlertTriangle } from "lucide-react";
+import { Plus, AlertTriangle, Eye } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -30,6 +30,7 @@ interface StockOutFormData {
 
 function StokKeluarContent() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [detailDialog, setDetailDialog] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [jenisStokKeluar, setJenisStokKeluar] = useState<any[]>([]);
   const [cabang, setCabang] = useState<any[]>([]);
@@ -46,7 +47,7 @@ function StokKeluarContent() {
     no_surat_jalan: "",
     keterangan: "",
   });
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
 
   useEffect(() => {
     fetchData();
@@ -55,15 +56,20 @@ function StokKeluarContent() {
   const fetchData = async () => {
     if (!user) return;
 
+    let stockOutQuery = supabase
+      .from("stock_out")
+      .select("*, products(name), jenis_stok_keluar(name), cabang(name)")
+      .order("created_at", { ascending: false });
+
+    if (userRole === "user") {
+      stockOutQuery = stockOutQuery.eq("user_id", user.id);
+    }
+
     const [productsRes, jenisRes, cabangRes, stockOutRes] = await Promise.all([
       supabase.from("products").select("*").eq("user_id", user.id),
       supabase.from("jenis_stok_keluar").select("*"),
       supabase.from("cabang").select("*"),
-      supabase
-        .from("stock_out")
-        .select("*, products(name), jenis_stok_keluar(name)")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false }),
+      stockOutQuery,
     ]);
 
     if (productsRes.data) setProducts(productsRes.data);
@@ -131,13 +137,14 @@ function StokKeluarContent() {
           <h1 className="text-3xl font-bold text-foreground">Stok Keluar</h1>
           <p className="text-muted-foreground">Kelola data stok keluar gudang</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Tambah Stok Keluar
-            </Button>
-          </DialogTrigger>
+        {userRole === "user" && (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Tambah Stok Keluar
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Tambah Stok Keluar</DialogTitle>
@@ -311,7 +318,8 @@ function StokKeluarContent() {
               </Button>
             </form>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        )}
       </div>
 
       <Card className="shadow-sm">
@@ -323,12 +331,13 @@ function StokKeluarContent() {
               <TableHead>Varian</TableHead>
               <TableHead>Jenis</TableHead>
               <TableHead className="text-right">Jumlah</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {stockOutData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center">
+                <TableCell colSpan={6} className="text-center">
                   Belum ada data stok keluar
                 </TableCell>
               </TableRow>
@@ -340,12 +349,75 @@ function StokKeluarContent() {
                   <TableCell>{item.variant || "-"}</TableCell>
                   <TableCell>{item.jenis_stok_keluar?.name}</TableCell>
                   <TableCell className="text-right font-medium">{item.qty}</TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" onClick={() => setDetailDialog(item)}>
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
       </Card>
+
+      <Dialog open={!!detailDialog} onOpenChange={() => setDetailDialog(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Detail Stok Keluar</DialogTitle></DialogHeader>
+          {detailDialog && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Tanggal</Label>
+                <p className="font-medium">{new Date(detailDialog.created_at).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Produk</Label>
+                <p className="font-medium">{detailDialog.products?.name}</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Varian</Label>
+                <p className="font-medium">{detailDialog.variant || "-"}</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Tujuan</Label>
+                <p className="font-medium">{detailDialog.tujuan_category}</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Jenis Stok Keluar</Label>
+                <p className="font-medium">{detailDialog.jenis_stok_keluar?.name}</p>
+              </div>
+              {detailDialog.cabang_id && (
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Cabang</Label>
+                  <p className="font-medium">{detailDialog.cabang?.name || "-"}</p>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Jumlah</Label>
+                <p className="font-medium">{detailDialog.qty}</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Plat Nomor</Label>
+                <p className="font-medium">{detailDialog.plat_nomor || "-"}</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Supir</Label>
+                <p className="font-medium">{detailDialog.supir || "-"}</p>
+              </div>
+              {detailDialog.no_surat_jalan && (
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">No. Surat Jalan</Label>
+                  <p className="font-medium">{detailDialog.no_surat_jalan}</p>
+                </div>
+              )}
+              <div className="col-span-2 space-y-2">
+                <Label className="text-muted-foreground">Keterangan</Label>
+                <p className="font-medium">{detailDialog.keterangan || "-"}</p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -54,13 +54,13 @@ All colors MUST be HSL.
     --gradient-secondary: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 46%));
     --gradient-subtle: linear-gradient(180deg, hsl(240 20% 99%), hsl(217 91% 98%));
 
-    --sidebar-background: 222 47% 11%;
+    --sidebar-background: 222 30% 18%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 15%;
+    --sidebar-accent: 222 30% 22%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222 47% 20%;
+    --sidebar-border: 222 30% 25%;
     --sidebar-ring: 217 91% 60%;
     
     --chart-1: 217 91% 60%;

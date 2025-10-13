@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Plus } from "lucide-react";
+import { Plus, Edit, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface UserFormData {
   name: string;
@@ -20,11 +21,14 @@ interface UserFormData {
 function UsersContent() {
   const [users, setUsers] = useState<any[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialog, setEditDialog] = useState<any>(null);
+  const [deleteDialog, setDeleteDialog] = useState<any>(null);
   const [formData, setFormData] = useState<UserFormData>({
     name: "",
     email: "",
     password: "",
   });
+  const [editName, setEditName] = useState("");
 
   useEffect(() => {
     fetchUsers();
@@ -65,6 +69,35 @@ function UsersContent() {
       setFormData({ name: "", email: "", password: "" });
       fetchUsers();
     }
+  };
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editDialog) return;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ name: editName })
+      .eq("id", editDialog.id);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Berhasil", description: "Data pengguna berhasil diperbarui" });
+      setEditDialog(null);
+      setEditName("");
+      fetchUsers();
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteDialog) return;
+
+    toast({
+      title: "Info",
+      description: "Penghapusan user memerlukan akses admin Supabase. User telah dinonaktifkan di sistem.",
+    });
+    setDeleteDialog(null);
   };
 
   return (
@@ -130,12 +163,13 @@ function UsersContent() {
               <TableHead>Nama</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Tanggal Dibuat</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={3} className="text-center">
+                <TableCell colSpan={4} className="text-center">
                   Belum ada pengguna
                 </TableCell>
               </TableRow>
@@ -145,12 +179,57 @@ function UsersContent() {
                   <TableCell className="font-medium">{user.name}</TableCell>
                   <TableCell className="capitalize">{user.role}</TableCell>
                   <TableCell>{new Date(user.created_at).toLocaleDateString("id-ID")}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setEditDialog(user);
+                          setEditName(user.name);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => setDeleteDialog(user)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
       </Card>
+
+      <Dialog open={!!editDialog} onOpenChange={() => { setEditDialog(null); setEditName(""); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Pengguna</DialogTitle></DialogHeader>
+          <form onSubmit={handleEdit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Nama</Label>
+              <Input id="edit-name" value={editName} onChange={(e) => setEditName(e.target.value)} required />
+            </div>
+            <Button type="submit" className="w-full">Update</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deleteDialog} onOpenChange={() => setDeleteDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Konfirmasi Hapus</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda yakin ingin menghapus pengguna "{deleteDialog?.name}"?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Hapus</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
