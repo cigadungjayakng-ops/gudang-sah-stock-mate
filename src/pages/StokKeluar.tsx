@@ -5,6 +5,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { DashboardLayout } from "@/components/layouts/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -363,58 +364,74 @@ function StokKeluarContent() {
 
       <Dialog open={!!detailDialog} onOpenChange={() => setDetailDialog(null)}>
         <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>Detail Stok Keluar</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-destructive to-destructive/60 bg-clip-text text-transparent">
+              Detail Stok Keluar
+            </DialogTitle>
+          </DialogHeader>
           {detailDialog && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Tanggal</Label>
-                <p className="font-medium">{new Date(detailDialog.created_at).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Produk</Label>
-                <p className="font-medium">{detailDialog.products?.name}</p>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Varian</Label>
-                <p className="font-medium">{detailDialog.variant || "-"}</p>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Tujuan</Label>
-                <p className="font-medium">{detailDialog.tujuan_category}</p>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Jenis Stok Keluar</Label>
-                <p className="font-medium">{detailDialog.jenis_stok_keluar?.name}</p>
-              </div>
-              {detailDialog.cabang_id && (
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground">Cabang</Label>
-                  <p className="font-medium">{detailDialog.cabang?.name || "-"}</p>
+            <Card className="border-destructive/20 shadow-lg">
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-[140px,1fr] gap-x-4 gap-y-3">
+                  <div className="text-sm font-semibold text-muted-foreground">Tanggal</div>
+                  <div className="text-sm font-medium">{new Date(detailDialog.created_at).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                  
+                  <div className="text-sm font-semibold text-muted-foreground">Produk</div>
+                  <div className="text-sm font-medium">{detailDialog.products?.name}</div>
+                  
+                  {detailDialog.variant && (
+                    <>
+                      <div className="text-sm font-semibold text-muted-foreground">Varian</div>
+                      <Badge variant="secondary" className="w-fit">{detailDialog.variant}</Badge>
+                    </>
+                  )}
+                  
+                  <div className="text-sm font-semibold text-muted-foreground">Tujuan</div>
+                  <Badge className="w-fit bg-destructive/10 text-destructive hover:bg-destructive/20">{detailDialog.tujuan_category}</Badge>
+                  
+                  <div className="text-sm font-semibold text-muted-foreground">Jenis</div>
+                  <Badge className="w-fit bg-destructive/10 text-destructive hover:bg-destructive/20">{detailDialog.jenis_stok_keluar?.name}</Badge>
+                  
+                  {detailDialog.cabang && (
+                    <>
+                      <div className="text-sm font-semibold text-muted-foreground">Cabang</div>
+                      <div className="text-sm font-medium">{detailDialog.cabang.name}</div>
+                    </>
+                  )}
+                  
+                  <div className="text-sm font-semibold text-muted-foreground">Jumlah</div>
+                  <div className="text-2xl font-bold text-destructive">{detailDialog.qty}</div>
+                  
+                  {detailDialog.plat_nomor && (
+                    <>
+                      <div className="text-sm font-semibold text-muted-foreground">Plat Nomor</div>
+                      <div className="text-sm font-medium font-mono">{detailDialog.plat_nomor}</div>
+                    </>
+                  )}
+                  
+                  {detailDialog.supir && (
+                    <>
+                      <div className="text-sm font-semibold text-muted-foreground">Supir</div>
+                      <div className="text-sm font-medium">{detailDialog.supir}</div>
+                    </>
+                  )}
+                  
+                  {detailDialog.no_surat_jalan && (
+                    <>
+                      <div className="text-sm font-semibold text-muted-foreground">No. Surat Jalan</div>
+                      <div className="text-sm font-medium font-mono">{detailDialog.no_surat_jalan}</div>
+                    </>
+                  )}
+                  
+                  {detailDialog.keterangan && (
+                    <>
+                      <div className="text-sm font-semibold text-muted-foreground">Keterangan</div>
+                      <div className="text-sm">{detailDialog.keterangan}</div>
+                    </>
+                  )}
                 </div>
-              )}
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Jumlah</Label>
-                <p className="font-medium">{detailDialog.qty}</p>
               </div>
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Plat Nomor</Label>
-                <p className="font-medium">{detailDialog.plat_nomor || "-"}</p>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Supir</Label>
-                <p className="font-medium">{detailDialog.supir || "-"}</p>
-              </div>
-              {detailDialog.no_surat_jalan && (
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground">No. Surat Jalan</Label>
-                  <p className="font-medium">{detailDialog.no_surat_jalan}</p>
-                </div>
-              )}
-              <div className="col-span-2 space-y-2">
-                <Label className="text-muted-foreground">Keterangan</Label>
-                <p className="font-medium">{detailDialog.keterangan || "-"}</p>
-              </div>
-            </div>
+            </Card>
           )}
         </DialogContent>
       </Dialog>

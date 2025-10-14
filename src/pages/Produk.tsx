@@ -12,8 +12,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Plus, History, Edit, Trash2 } from "lucide-react";
+import { Plus, History, Edit, Trash2, Package2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useProductStock } from "@/hooks/useProductStock";
 
 interface Product {
   id: string;
@@ -40,15 +41,10 @@ function ProdukContent() {
   const fetchProducts = async () => {
     if (!user) return;
 
-    let query;
-    
-    if (userRole === "user") {
-      query = supabase.from("products").select("*").eq("user_id", user.id);
-    } else {
-      query = supabase.from("products").select("*, profiles(name)");
-    }
-
-    const { data, error } = await query;
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .order("created_at", { ascending: false });
 
     if (error) {
       toast({
@@ -56,6 +52,25 @@ function ProdukContent() {
         description: error.message,
         variant: "destructive",
       });
+      setProducts(data || []);
+      setLoading(false);
+      return;
+    }
+
+    // For superadmin, fetch user names separately
+    if (userRole === "superadmin" && data && data.length > 0) {
+      const userIds = [...new Set(data.map(p => p.user_id))];
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("id, name")
+        .in("id", userIds);
+      
+      const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || []);
+      const productsWithProfiles = data.map(product => ({
+        ...product,
+        profiles: profilesMap.get(product.user_id)
+      }));
+      setProducts(productsWithProfiles);
     } else {
       setProducts(data || []);
     }
@@ -227,22 +242,44 @@ function ProdukContent() {
                 </TableCell>
               </TableRow>
             ) : (
-              products.map((product) => (
-                <TableRow key={product.id}>
-                  <TableCell className="font-medium">{product.name}</TableCell>
-                  <TableCell>
-                    {product.variants && product.variants.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {product.variants.map((variant, idx) => (
-                          <Badge key={idx} variant="secondary">
-                            {variant}
-                          </Badge>
-                        ))}
+              products.map((product) => {
+                const ProductStock = () => {
+                  const { stockInfo } = useProductStock(product.id);
+                  return (
+                    <div className="flex flex-wrap gap-2">
+                      {stockInfo.map((info, idx) => (
+                        <div key={idx} className="flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10">
+                          <Package2 className="h-3 w-3 text-primary" />
+                          <span className="text-xs font-medium">
+                            {info.variant || "Default"}: {info.stock}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                };
+
+                return (
+                  <TableRow key={product.id}>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{product.name}</div>
+                        <ProductStock />
                       </div>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
+                    </TableCell>
+                    <TableCell>
+                      {product.variants && product.variants.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {product.variants.map((variant: string, idx: number) => (
+                            <Badge key={idx} variant="secondary">
+                              {variant}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
                   {!canEdit && <TableCell>{product.profiles?.name || "-"}</TableCell>}
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
@@ -278,9 +315,10 @@ function ProdukContent() {
                         </>
                       )}
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

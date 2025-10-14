@@ -22,7 +22,9 @@ interface HistoryItem {
   created_at: string;
   type: "IN" | "OUT";
   variant: string | null;
+  stok_awal: number;
   qty: number;
+  sisa_stok: number;
   jenis: string;
   keterangan: string | null;
 }
@@ -94,29 +96,45 @@ function ProductHistoryContent() {
 
     const { data: stockOutData } = await stockOutQuery;
 
-    // Combine and sort
-    const combined: HistoryItem[] = [
-      ...(stockInData || []).map((item: any) => ({
-        id: item.id,
-        created_at: item.created_at,
-        type: "IN" as const,
-        variant: item.variant,
-        qty: item.qty,
-        jenis: item.jenis_stok_masuk?.name || "-",
-        keterangan: item.keterangan,
-      })),
-      ...(stockOutData || []).map((item: any) => ({
-        id: item.id,
-        created_at: item.created_at,
-        type: "OUT" as const,
-        variant: item.variant,
-        qty: item.qty,
-        jenis: item.jenis_stok_keluar?.name || "-",
-        keterangan: item.keterangan,
-      })),
-    ];
+    // Get stock before date range
+    const { data: stockBeforeIn } = await supabase
+      .from("stock_in")
+      .select("qty, variant")
+      .eq("product_id", productId)
+      .lt("created_at", format(dateFrom, "yyyy-MM-dd"));
+    
+    const { data: stockBeforeOut } = await supabase
+      .from("stock_out")
+      .select("qty, variant")
+      .eq("product_id", productId)
+      .lt("created_at", format(dateFrom, "yyyy-MM-dd"));
 
-    combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    // Combine and calculate running stock
+    const allItems = [
+      ...(stockInData || []).map((item: any) => ({ ...item, type: "IN" as const })),
+      ...(stockOutData || []).map((item: any) => ({ ...item, type: "OUT" as const })),
+    ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+    let runningStock = (stockBeforeIn?.reduce((sum, i: any) => sum + i.qty, 0) || 0) - 
+                       (stockBeforeOut?.reduce((sum, i: any) => sum + i.qty, 0) || 0);
+
+    const combined: HistoryItem[] = allItems.map((item: any) => {
+      const stok_awal = runningStock;
+      runningStock += item.type === "IN" ? item.qty : -item.qty;
+      return {
+        id: item.id,
+        created_at: item.created_at,
+        type: item.type,
+        variant: item.variant,
+        stok_awal,
+        qty: item.qty,
+        sisa_stok: runningStock,
+        jenis: item.type === "IN" ? item.jenis_stok_masuk?.name || "-" : item.jenis_stok_keluar?.name || "-",
+        keterangan: item.keterangan,
+      };
+    });
+
+    combined.reverse();
     setHistory(combined);
     setLoading(false);
   };
@@ -198,20 +216,22 @@ function ProductHistoryContent() {
               <TableHead>Tipe</TableHead>
               <TableHead>Jenis</TableHead>
               <TableHead>Varian</TableHead>
+              <TableHead className="text-right">Stok Awal</TableHead>
               <TableHead className="text-right">Qty</TableHead>
+              <TableHead className="text-right">Sisa Stok</TableHead>
               <TableHead>Keterangan</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center">
+                <TableCell colSpan={8} className="text-center">
                   Memuat data...
                 </TableCell>
               </TableRow>
             ) : history.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center">
+                <TableCell colSpan={8} className="text-center">
                   Belum ada riwayat
                 </TableCell>
               </TableRow>
@@ -226,7 +246,9 @@ function ProductHistoryContent() {
                   </TableCell>
                   <TableCell>{item.jenis}</TableCell>
                   <TableCell>{item.variant || "-"}</TableCell>
+                  <TableCell className="text-right">{item.stok_awal}</TableCell>
                   <TableCell className="text-right font-medium">{item.qty}</TableCell>
+                  <TableCell className="text-right font-bold">{item.sisa_stok}</TableCell>
                   <TableCell className="text-muted-foreground">{item.keterangan || "-"}</TableCell>
                 </TableRow>
               ))

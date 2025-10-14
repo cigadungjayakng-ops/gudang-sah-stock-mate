@@ -10,6 +10,7 @@ import Produk from "./pages/Produk";
 import ProductHistory from "./pages/ProductHistory";
 import StokMasuk from "./pages/StokMasuk";
 import StokKeluar from "./pages/StokKeluar";
+import PergerakanStok from "./pages/PergerakanStok";
 import Laporan from "./pages/Laporan";
 import AdminUsers from "./pages/admin/Users";
 import AdminCabang from "./pages/admin/Cabang";
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/produk/:productId/history" element={<ProductHistory />} />
             <Route path="/stok-masuk" element={<StokMasuk />} />
             <Route path="/stok-keluar" element={<StokKeluar />} />
+            <Route path="/pergerakan-stok" element={<PergerakanStok />} />
             <Route path="/laporan" element={<Laporan />} />
             <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/admin/cabang" element={<AdminCabang />} />

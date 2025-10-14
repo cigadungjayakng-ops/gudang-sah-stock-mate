@@ -8,8 +8,11 @@ import {
   Building2,
   FolderInput,
   FolderOutput,
-  LogOut
+  LogOut,
+  GitBranch
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { NavLink } from "react-router-dom";
 import {
   Sidebar,
@@ -32,6 +35,7 @@ const userMenuItems = [
   { title: "Produk", url: "/produk", icon: Package },
   { title: "Stok Masuk", url: "/stok-masuk", icon: TrendingDown },
   { title: "Stok Keluar", url: "/stok-keluar", icon: TrendingUp },
+  { title: "Pergerakan Stok", url: "/pergerakan-stok", icon: GitBranch },
   { title: "Laporan", url: "/laporan", icon: FileText },
 ];
 
@@ -40,6 +44,7 @@ const superadminMenuItems = [
   { title: "Produk", url: "/produk", icon: Package },
   { title: "Stok Masuk", url: "/stok-masuk", icon: TrendingDown },
   { title: "Stok Keluar", url: "/stok-keluar", icon: TrendingUp },
+  { title: "Pergerakan Stok", url: "/pergerakan-stok", icon: GitBranch },
   { title: "Laporan", url: "/laporan", icon: FileText },
 ];
 
@@ -182,6 +187,3 @@ export function AppSidebar() {
     </Sidebar>
   );
 }
-
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
