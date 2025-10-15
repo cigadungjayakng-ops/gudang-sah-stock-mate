@@ -224,119 +224,161 @@ function ProdukContent() {
             <TableRow>
               <TableHead>Nama Produk</TableHead>
               <TableHead>Varian</TableHead>
-              {!canEdit && <TableHead>Pemilik</TableHead>}
+              <TableHead>Stok</TableHead>
               <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={canEdit ? 3 : 4} className="text-center">
+                <TableCell colSpan={4} className="text-center">
                   Memuat data...
                 </TableCell>
               </TableRow>
             ) : products.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={canEdit ? 3 : 4} className="text-center">
+                <TableCell colSpan={4} className="text-center">
                   Belum ada produk
                 </TableCell>
               </TableRow>
             ) : (
-              products.map((product) => {
-
-                const ProductStock = () => {
+              products.flatMap((product) => {
+                const ProductRows = () => {
                   const { stockInfo } = useProductStock(product.id);
-                  const variantColors = ["bg-primary/20 text-primary", "bg-secondary/20 text-secondary", "bg-accent/20 text-accent", "bg-chart-4/20 text-chart-4", "bg-chart-2/20 text-chart-2"];
+                  const variantColors = ["bg-primary/20 text-primary border-primary", "bg-secondary/20 text-secondary border-secondary", "bg-accent/20 text-accent border-accent", "bg-chart-4/20 text-chart-4 border-chart-4", "bg-chart-2/20 text-chart-2 border-chart-2"];
 
                   if (product.variants && product.variants.length > 0) {
-                    return (
-                      <div className="space-y-2 mt-2">
-                        {product.variants.map((variant: string, idx: number) => {
-                          const stock = stockInfo.find(s => s.variant === variant)?.stock || 0;
-                          return (
-                            <div key={idx} className="flex items-center justify-between gap-4">
-                              <Badge className={variantColors[idx % variantColors.length]}>
-                                {variant}
-                              </Badge>
-                              <div className="flex items-center gap-1">
-                                <Package2 className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-sm font-medium">{stock}</span>
+                    return product.variants.map((variant: string, idx: number) => {
+                      const stock = stockInfo.find(s => s.variant === variant)?.stock || 0;
+                      return (
+                        <TableRow key={`${product.id}-${variant}`}>
+                          {idx === 0 && (
+                            <TableCell rowSpan={product.variants.length} className="font-medium align-top">
+                              <div className="flex flex-col gap-1">
+                                <span>{product.name}</span>
+                                {!canEdit && product.profiles?.name && (
+                                  <span className="text-xs text-muted-foreground">
+                                    Pemilik: {product.profiles.name}
+                                  </span>
+                                )}
                               </div>
+                            </TableCell>
+                          )}
+                          <TableCell>
+                            <Badge variant="outline" className={variantColors[idx % variantColors.length]}>
+                              {variant}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Package2 className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-medium">{stock}</span>
                             </div>
-                          );
-                        })}
-                      </div>
-                    );
+                          </TableCell>
+                          {idx === 0 && (
+                            <TableCell rowSpan={product.variants.length} className="text-right align-top">
+                              <div className="flex justify-end gap-2">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  onClick={() => navigate(`/produk/${product.id}/history`)}
+                                >
+                                  <History className="h-4 w-4" />
+                                </Button>
+                                {canEdit && (
+                                  <>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon"
+                                      onClick={() => {
+                                        setEditDialog(product);
+                                        setFormData({
+                                          name: product.name,
+                                          variants: product.variants?.join(", ") || ""
+                                        });
+                                      }}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => setDeleteDialog(product.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      );
+                    });
                   }
 
                   const stock = stockInfo.find(s => s.variant === null)?.stock || 0;
                   return (
-                    <div className="flex items-center gap-1 mt-2">
-                      <Package2 className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-sm font-medium">Stok: {stock}</span>
-                    </div>
-                  );
-                };
-
-                return (
-                  <TableRow key={product.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{product.name}</div>
-                        <ProductStock />
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {product.variants && product.variants.length > 0 ? (
-                        <div className="space-y-1">
-                          {product.variants.map((variant: string) => (
-                            <div key={variant} className="text-sm text-muted-foreground">
-                              {variant}
-                            </div>
-                          ))}
+                    <TableRow key={product.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex flex-col gap-1">
+                          <span>{product.name}</span>
+                          {!canEdit && product.profiles?.name && (
+                            <span className="text-xs text-muted-foreground">
+                              Pemilik: {product.profiles.name}
+                            </span>
+                          )}
                         </div>
-                      ) : (
+                      </TableCell>
+                      <TableCell>
                         <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                  {!canEdit && <TableCell>{product.profiles?.name || "-"}</TableCell>}
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => navigate(`/produk/${product.id}/history`)}
-                      >
-                        <History className="h-4 w-4" />
-                      </Button>
-                      {canEdit && (
-                        <>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Package2 className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium">{stock}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
                           <Button 
                             variant="ghost" 
                             size="icon"
-                            onClick={() => {
-                              setEditDialog(product);
-                              setFormData({
-                                name: product.name,
-                                variants: product.variants?.join(", ") || ""
-                              });
-                            }}
+                            onClick={() => navigate(`/produk/${product.id}/history`)}
                           >
-                            <Edit className="h-4 w-4" />
+                            <History className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeleteDialog(product.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                    </TableCell>
-                  </TableRow>
-                );
+                          {canEdit && (
+                            <>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => {
+                                  setEditDialog(product);
+                                  setFormData({
+                                    name: product.name,
+                                    variants: product.variants?.join(", ") || ""
+                                  });
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setDeleteDialog(product.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                };
+
+                return <ProductRows />;
               })
             )}
           </TableBody>
