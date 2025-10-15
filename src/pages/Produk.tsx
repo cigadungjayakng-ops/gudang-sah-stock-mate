@@ -243,18 +243,37 @@ function ProdukContent() {
               </TableRow>
             ) : (
               products.map((product) => {
+
                 const ProductStock = () => {
                   const { stockInfo } = useProductStock(product.id);
+                  const variantColors = ["bg-primary/20 text-primary", "bg-secondary/20 text-secondary", "bg-accent/20 text-accent", "bg-chart-4/20 text-chart-4", "bg-chart-2/20 text-chart-2"];
+
+                  if (product.variants && product.variants.length > 0) {
+                    return (
+                      <div className="space-y-2 mt-2">
+                        {product.variants.map((variant: string, idx: number) => {
+                          const stock = stockInfo.find(s => s.variant === variant)?.stock || 0;
+                          return (
+                            <div key={idx} className="flex items-center justify-between gap-4">
+                              <Badge className={variantColors[idx % variantColors.length]}>
+                                {variant}
+                              </Badge>
+                              <div className="flex items-center gap-1">
+                                <Package2 className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-sm font-medium">{stock}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  }
+
+                  const stock = stockInfo.find(s => s.variant === null)?.stock || 0;
                   return (
-                    <div className="flex flex-wrap gap-2">
-                      {stockInfo.map((info, idx) => (
-                        <div key={idx} className="flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10">
-                          <Package2 className="h-3 w-3 text-primary" />
-                          <span className="text-xs font-medium">
-                            {info.variant || "Default"}: {info.stock}
-                          </span>
-                        </div>
-                      ))}
+                    <div className="flex items-center gap-1 mt-2">
+                      <Package2 className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-sm font-medium">Stok: {stock}</span>
                     </div>
                   );
                 };
@@ -269,11 +288,11 @@ function ProdukContent() {
                     </TableCell>
                     <TableCell>
                       {product.variants && product.variants.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {product.variants.map((variant: string, idx: number) => (
-                            <Badge key={idx} variant="secondary">
+                        <div className="space-y-1">
+                          {product.variants.map((variant: string) => (
+                            <div key={variant} className="text-sm text-muted-foreground">
                               {variant}
-                            </Badge>
+                            </div>
                           ))}
                         </div>
                       ) : (

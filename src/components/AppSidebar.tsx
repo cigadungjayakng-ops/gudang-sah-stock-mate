@@ -31,21 +31,21 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from "@/components/ui/button";
 
 const userMenuItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Produk", url: "/produk", icon: Package },
-  { title: "Stok Masuk", url: "/stok-masuk", icon: TrendingDown },
-  { title: "Stok Keluar", url: "/stok-keluar", icon: TrendingUp },
-  { title: "Pergerakan Stok", url: "/pergerakan-stok", icon: GitBranch },
-  { title: "Laporan", url: "/laporan", icon: FileText },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard, color: "text-primary" },
+  { title: "Produk", url: "/produk", icon: Package, color: "text-secondary" },
+  { title: "Stok Masuk", url: "/stok-masuk", icon: TrendingDown, color: "text-accent" },
+  { title: "Stok Keluar", url: "/stok-keluar", icon: TrendingUp, color: "text-chart-4" },
+  { title: "Pergerakan Stok", url: "/pergerakan-stok", icon: GitBranch, color: "text-chart-2" },
+  { title: "Laporan", url: "/laporan", icon: FileText, color: "text-destructive" },
 ];
 
 const superadminMenuItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Produk", url: "/produk", icon: Package },
-  { title: "Stok Masuk", url: "/stok-masuk", icon: TrendingDown },
-  { title: "Stok Keluar", url: "/stok-keluar", icon: TrendingUp },
-  { title: "Pergerakan Stok", url: "/pergerakan-stok", icon: GitBranch },
-  { title: "Laporan", url: "/laporan", icon: FileText },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard, color: "text-primary" },
+  { title: "Produk", url: "/produk", icon: Package, color: "text-secondary" },
+  { title: "Stok Masuk", url: "/stok-masuk", icon: TrendingDown, color: "text-accent" },
+  { title: "Stok Keluar", url: "/stok-keluar", icon: TrendingUp, color: "text-chart-4" },
+  { title: "Pergerakan Stok", url: "/pergerakan-stok", icon: GitBranch, color: "text-chart-2" },
+  { title: "Laporan", url: "/laporan", icon: FileText, color: "text-destructive" },
 ];
 
 const adminMenuItems = [
@@ -120,7 +120,7 @@ export function AppSidebar() {
                           : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50"
                       }
                     >
-                      <item.icon className="h-4 w-4" />
+                      <item.icon className={`h-4 w-4 ${item.color}`} />
                       <span>{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>

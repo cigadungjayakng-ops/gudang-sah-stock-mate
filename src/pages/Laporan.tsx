@@ -1,10 +1,203 @@
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { DashboardLayout } from "@/components/layouts/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Download } from "lucide-react";
+import { FileText, Download, Package } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { Combobox } from "@/components/ui/combobox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+
+interface Product {
+  id: string;
+  name: string;
+  variants: any;
+  user_id: string;
+}
+
+interface User {
+  id: string;
+  name: string;
+}
 
 function LaporanContent() {
+  const { user, userRole } = useAuth();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [activeTab, setActiveTab] = useState("stok-produk");
+  
+  // Filters for Laporan Stok Produk
+  const [productFilter, setProductFilter] = useState("");
+  const [variantFilter, setVariantFilter] = useState("");
+  const [userFilter, setUserFilter] = useState("");
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
+    from: new Date(new Date().setDate(new Date().getDate() - 30)),
+    to: new Date(),
+  });
+
+  // Preview data
+  const [stockPreview, setStockPreview] = useState<any[]>([]);
+  const [stockInPreview, setStockInPreview] = useState<any[]>([]);
+  const [stockOutPreview, setStockOutPreview] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchProducts();
+    if (userRole === "superadmin") {
+      fetchUsers();
+    }
+  }, [user, userRole]);
+
+  useEffect(() => {
+    if (activeTab === "stok-produk") fetchStockPreview();
+    if (activeTab === "stok-masuk") fetchStockInPreview();
+    if (activeTab === "stok-keluar") fetchStockOutPreview();
+  }, [activeTab, productFilter, variantFilter, userFilter, dateRange]);
+
+  const fetchProducts = async () => {
+    if (!user) return;
+    const query = userRole === "user"
+      ? supabase.from("products").select("*").eq("user_id", user.id)
+      : supabase.from("products").select("*");
+    const { data } = await query;
+    setProducts(data || []);
+  };
+
+  const fetchUsers = async () => {
+    const { data } = await supabase.from("profiles").select("id, name");
+    setUsers(data || []);
+  };
+
+  const fetchStockPreview = async () => {
+    if (!user) return;
+    
+    let stockInQuery = supabase
+      .from("stock_in")
+      .select("product_id, variant, qty, products(name, user_id)")
+      .gte("created_at", dateRange.from.toISOString())
+      .lte("created_at", dateRange.to.toISOString());
+
+    let stockOutQuery = supabase
+      .from("stock_out")
+      .select("product_id, variant, qty")
+      .gte("created_at", dateRange.from.toISOString())
+      .lte("created_at", dateRange.to.toISOString());
+
+    if (userRole === "user") {
+      stockInQuery = stockInQuery.eq("user_id", user.id);
+      stockOutQuery = stockOutQuery.eq("user_id", user.id);
+    } else if (userFilter) {
+      stockInQuery = stockInQuery.eq("products.user_id", userFilter);
+    }
+
+    if (productFilter) {
+      stockInQuery = stockInQuery.eq("product_id", productFilter);
+      stockOutQuery = stockOutQuery.eq("product_id", productFilter);
+    }
+
+    const [{ data: stockIn }, { data: stockOut }] = await Promise.all([
+      stockInQuery,
+      stockOutQuery,
+    ]);
+
+    const stockMap = new Map<string, any>();
+
+    stockIn?.forEach((item: any) => {
+      const key = `${item.product_id}-${item.variant || "null"}`;
+      const current = stockMap.get(key) || { 
+        product_name: item.products?.name || "", 
+        variant: item.variant,
+        stock_in: 0,
+        stock_out: 0,
+      };
+      stockMap.set(key, { ...current, stock_in: current.stock_in + item.qty });
+    });
+
+    stockOut?.forEach((item: any) => {
+      const key = `${item.product_id}-${item.variant || "null"}`;
+      const current = stockMap.get(key);
+      if (current) {
+        stockMap.set(key, { ...current, stock_out: current.stock_out + item.qty });
+      }
+    });
+
+    const preview = Array.from(stockMap.entries())
+      .map(([, value]) => ({
+        ...value,
+        stock: value.stock_in - value.stock_out,
+      }))
+      .filter(item => !variantFilter || item.variant === variantFilter)
+      .slice(0, 10);
+
+    setStockPreview(preview);
+  };
+
+  const fetchStockInPreview = async () => {
+    if (!user) return;
+
+    let query = supabase
+      .from("stock_in")
+      .select("*, products(name, user_id), jenis_stok_masuk(name)")
+      .gte("created_at", dateRange.from.toISOString())
+      .lte("created_at", dateRange.to.toISOString())
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (userRole === "user") {
+      query = query.eq("user_id", user.id);
+    } else if (userFilter) {
+      query = query.eq("products.user_id", userFilter);
+    }
+
+    if (productFilter) {
+      query = query.eq("product_id", productFilter);
+    }
+
+    const { data } = await query;
+    
+    const filtered = data?.filter(item => !variantFilter || item.variant === variantFilter) || [];
+    setStockInPreview(filtered);
+  };
+
+  const fetchStockOutPreview = async () => {
+    if (!user) return;
+
+    let query = supabase
+      .from("stock_out")
+      .select("*, products(name, user_id), jenis_stok_keluar(name)")
+      .gte("created_at", dateRange.from.toISOString())
+      .lte("created_at", dateRange.to.toISOString())
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (userRole === "user") {
+      query = query.eq("user_id", user.id);
+    } else if (userFilter) {
+      query = query.eq("products.user_id", userFilter);
+    }
+
+    if (productFilter) {
+      query = query.eq("product_id", productFilter);
+    }
+
+    const { data } = await query;
+    
+    const filtered = data?.filter(item => !variantFilter || item.variant === variantFilter) || [];
+    setStockOutPreview(filtered);
+  };
+
+  const selectedProduct = products.find(p => p.id === productFilter);
+  const hasVariants = selectedProduct?.variants && selectedProduct.variants.length > 0;
+
   return (
     <div className="space-y-6">
       <div>
@@ -12,70 +205,240 @@ function LaporanContent() {
         <p className="text-muted-foreground">Cetak dan unduh laporan stok gudang</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <FileText className="h-8 w-8 text-primary" />
-              <Download className="h-5 w-5 text-muted-foreground" />
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="stok-produk">Laporan Stok Produk</TabsTrigger>
+          <TabsTrigger value="stok-masuk">Riwayat Stok Masuk</TabsTrigger>
+          <TabsTrigger value="stok-keluar">Riwayat Stok Keluar</TabsTrigger>
+        </TabsList>
+
+        {/* Filters */}
+        <Card className="mt-4 p-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label>Produk</Label>
+              <Combobox
+                options={products.map(p => ({ value: p.id, label: p.name }))}
+                value={productFilter}
+                onValueChange={setProductFilter}
+                placeholder="Semua Produk"
+                searchPlaceholder="Cari produk..."
+                emptyText="Produk tidak ditemukan"
+              />
             </div>
-            <CardTitle>Laporan Stok Produk</CardTitle>
-            <CardDescription>Ringkasan stok seluruh produk</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button className="w-full">
-              <Download className="mr-2 h-4 w-4" />
-              Unduh PDF
-            </Button>
-          </CardContent>
+
+            {hasVariants && (
+              <div className="space-y-2">
+                <Label>Varian</Label>
+                <Select value={variantFilter} onValueChange={setVariantFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Semua Varian" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Semua Varian</SelectItem>
+                    {selectedProduct.variants.map((variant: string) => (
+                      <SelectItem key={variant} value={variant}>
+                        {variant}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {userRole === "superadmin" && (
+              <div className="space-y-2">
+                <Label>User</Label>
+                <Combobox
+                  options={users.map(u => ({ value: u.id, label: u.name }))}
+                  value={userFilter}
+                  onValueChange={setUserFilter}
+                  placeholder="Semua User"
+                  searchPlaceholder="Cari user..."
+                  emptyText="User tidak ditemukan"
+                />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Periode</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange.from && dateRange.to
+                      ? `${format(dateRange.from, "dd/MM/yy")} - ${format(dateRange.to, "dd/MM/yy")}`
+                      : "Pilih tanggal"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="range"
+                    selected={{ from: dateRange.from, to: dateRange.to }}
+                    onSelect={(range) => {
+                      if (range?.from) {
+                        setDateRange({
+                          from: new Date(range.from.setHours(0, 0, 0, 0)),
+                          to: range.to ? new Date(range.to.setHours(23, 59, 59, 999)) : new Date(range.from.setHours(23, 59, 59, 999)),
+                        });
+                      }
+                    }}
+                    numberOfMonths={2}
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
         </Card>
 
-        <Card className="shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <FileText className="h-8 w-8 text-secondary" />
-              <Download className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <CardTitle>Riwayat Stok Masuk</CardTitle>
-            <CardDescription>Semua transaksi stok masuk</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button className="w-full" variant="secondary">
-              <Download className="mr-2 h-4 w-4" />
-              Unduh PDF
-            </Button>
-          </CardContent>
-        </Card>
+        <TabsContent value="stok-produk">
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Preview Laporan Stok Produk</CardTitle>
+                <CardDescription>Menampilkan 10 item pertama</CardDescription>
+              </div>
+              <Button>
+                <Download className="mr-2 h-4 w-4" />
+                Unduh PDF
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Produk</TableHead>
+                    <TableHead>Varian</TableHead>
+                    <TableHead className="text-right">Masuk</TableHead>
+                    <TableHead className="text-right">Keluar</TableHead>
+                    <TableHead className="text-right">Stok</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stockPreview.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        Tidak ada data
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    stockPreview.map((item, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="font-medium">{item.product_name}</TableCell>
+                        <TableCell>
+                          {item.variant ? <Badge variant="secondary">{item.variant}</Badge> : "-"}
+                        </TableCell>
+                        <TableCell className="text-right">{item.stock_in}</TableCell>
+                        <TableCell className="text-right">{item.stock_out}</TableCell>
+                        <TableCell className="text-right font-bold">{item.stock}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        <Card className="shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <FileText className="h-8 w-8 text-accent" />
-              <Download className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <CardTitle>Riwayat Stok Keluar</CardTitle>
-            <CardDescription>Semua transaksi stok keluar</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button className="w-full" variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              Unduh PDF
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+        <TabsContent value="stok-masuk">
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Preview Riwayat Stok Masuk</CardTitle>
+                <CardDescription>Menampilkan 10 transaksi terakhir</CardDescription>
+              </div>
+              <Button variant="secondary">
+                <Download className="mr-2 h-4 w-4" />
+                Unduh PDF
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead>Produk</TableHead>
+                    <TableHead>Varian</TableHead>
+                    <TableHead>Jenis</TableHead>
+                    <TableHead className="text-right">Qty</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stockInPreview.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        Tidak ada data
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    stockInPreview.map((item: any) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{format(new Date(item.created_at), "dd/MM/yyyy")}</TableCell>
+                        <TableCell className="font-medium">{item.products?.name}</TableCell>
+                        <TableCell>
+                          {item.variant ? <Badge variant="secondary">{item.variant}</Badge> : "-"}
+                        </TableCell>
+                        <TableCell>{item.jenis_stok_masuk?.name}</TableCell>
+                        <TableCell className="text-right font-medium">{item.qty}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle>Informasi</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">
-            Fitur laporan memungkinkan Anda untuk mengunduh ringkasan stok produk, riwayat stok masuk, dan riwayat
-            stok keluar dalam format PDF. Gunakan tombol di atas untuk mengunduh laporan yang Anda butuhkan.
-          </p>
-        </CardContent>
-      </Card>
+        <TabsContent value="stok-keluar">
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Preview Riwayat Stok Keluar</CardTitle>
+                <CardDescription>Menampilkan 10 transaksi terakhir</CardDescription>
+              </div>
+              <Button variant="outline">
+                <Download className="mr-2 h-4 w-4" />
+                Unduh PDF
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead>Produk</TableHead>
+                    <TableHead>Varian</TableHead>
+                    <TableHead>Jenis</TableHead>
+                    <TableHead className="text-right">Qty</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stockOutPreview.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        Tidak ada data
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    stockOutPreview.map((item: any) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{format(new Date(item.created_at), "dd/MM/yyyy")}</TableCell>
+                        <TableCell className="font-medium">{item.products?.name}</TableCell>
+                        <TableCell>
+                          {item.variant ? <Badge variant="secondary">{item.variant}</Badge> : "-"}
+                        </TableCell>
+                        <TableCell>{item.jenis_stok_keluar?.name}</TableCell>
+                        <TableCell className="text-right font-medium">{item.qty}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { DashboardLayout } from "@/components/layouts/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -204,18 +205,14 @@ function PergerakanStokContent() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Produk</Label>
-            <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih produk" />
-              </SelectTrigger>
-              <SelectContent>
-                {products.map((product) => (
-                  <SelectItem key={product.id} value={product.id}>
-                    {product.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              options={products.map((p) => ({ value: p.id, label: p.name }))}
+              value={selectedProduct}
+              onValueChange={setSelectedProduct}
+              placeholder="Pilih produk"
+              searchPlaceholder="Cari produk..."
+              emptyText="Produk tidak ditemukan"
+            />
           </div>
 
           {hasVariants && (
