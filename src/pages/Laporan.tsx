@@ -4,7 +4,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { DashboardLayout } from "@/components/layouts/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Download, Package, RotateCcw } from "lucide-react";
+import { FileText, Download, Package } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
@@ -17,15 +17,6 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
-import { useToast } from "@/hooks/use-toast";
-
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
 
 interface Product {
   id: string;
@@ -41,7 +32,6 @@ interface User {
 
 function LaporanContent() {
   const { user, userRole } = useAuth();
-  const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState("stok-produk");
@@ -194,281 +184,6 @@ function LaporanContent() {
   const selectedProduct = products.find(p => p.id === productFilter);
   const hasVariants = selectedProduct?.variants && selectedProduct.variants.length > 0;
 
-  const resetFilters = () => {
-    setProductFilter("");
-    setVariantFilter("");
-    setDateRange({
-      from: new Date(new Date().setDate(new Date().getDate() - 30)),
-      to: new Date(),
-    });
-  };
-
-  useEffect(() => {
-    setVariantFilter("");
-  }, [productFilter]);
-
-  const downloadStockPDF = async () => {
-    try {
-      if (stockPreview.length === 0) {
-        toast({
-          title: "Tidak ada data",
-          description: "Tidak ada data untuk diunduh. Silakan sesuaikan filter.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      toast({ title: "Mengunduh PDF...", description: "Mohon tunggu sebentar" });
-
-      let stockInQuery = supabase
-        .from("stock_in")
-        .select("product_id, variant, qty, products(name, user_id), profiles!stock_in_user_id_fkey(name)")
-        .gte("created_at", dateRange.from.toISOString())
-        .lte("created_at", dateRange.to.toISOString());
-
-      let stockOutQuery = supabase
-        .from("stock_out")
-        .select("product_id, variant, qty")
-        .gte("created_at", dateRange.from.toISOString())
-        .lte("created_at", dateRange.to.toISOString());
-
-      if (userRole === "user" && user) {
-        stockInQuery = stockInQuery.eq("user_id", user.id);
-        stockOutQuery = stockOutQuery.eq("user_id", user.id);
-      }
-
-      if (productFilter) {
-        stockInQuery = stockInQuery.eq("product_id", productFilter);
-        stockOutQuery = stockOutQuery.eq("product_id", productFilter);
-      }
-
-      const [{ data: stockIn }, { data: stockOut }] = await Promise.all([
-        stockInQuery,
-        stockOutQuery,
-      ]);
-
-      const stockMap = new Map<string, any>();
-
-      stockIn?.forEach((item: any) => {
-        const key = `${item.product_id}-${item.variant || "null"}`;
-        const current = stockMap.get(key) || {
-          product_name: item.products?.name || "",
-          variant: item.variant,
-          stock_in: 0,
-          stock_out: 0,
-          owner: userRole === "superadmin" ? item.profiles?.name : null,
-        };
-        stockMap.set(key, { ...current, stock_in: current.stock_in + item.qty });
-      });
-
-      stockOut?.forEach((item: any) => {
-        const key = `${item.product_id}-${item.variant || "null"}`;
-        const current = stockMap.get(key);
-        if (current) {
-          stockMap.set(key, { ...current, stock_out: current.stock_out + item.qty });
-        }
-      });
-
-      const data = Array.from(stockMap.entries())
-        .map(([, value]) => ({
-          ...value,
-          stock: value.stock_in - value.stock_out,
-        }))
-        .filter(item => !variantFilter || item.variant === variantFilter);
-
-      const doc = new jsPDF();
-
-      doc.setFontSize(18);
-      doc.text("Laporan Stok Produk", 14, 20);
-
-      doc.setFontSize(10);
-      doc.text(`Periode: ${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}`, 14, 28);
-      doc.text(`Dicetak: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 34);
-
-      const headers = userRole === "superadmin"
-        ? [["Produk", "Varian", "Pemilik", "Masuk", "Keluar", "Stok"]]
-        : [["Produk", "Varian", "Masuk", "Keluar", "Stok"]];
-
-      const body = data.map(item =>
-        userRole === "superadmin"
-          ? [item.product_name, item.variant || "-", item.owner || "-", item.stock_in, item.stock_out, item.stock]
-          : [item.product_name, item.variant || "-", item.stock_in, item.stock_out, item.stock]
-      );
-
-      doc.autoTable({
-        head: headers,
-        body: body,
-        startY: 40,
-        theme: 'grid',
-        headStyles: { fillColor: [59, 130, 246] },
-      });
-
-      doc.save(`Laporan-Stok-${format(new Date(), "yyyyMMdd-HHmmss")}.pdf`);
-      toast({ title: "Berhasil", description: "PDF berhasil diunduh" });
-    } catch (error) {
-      console.error(error);
-      toast({ title: "Gagal", description: "Terjadi kesalahan saat mengunduh PDF", variant: "destructive" });
-    }
-  };
-
-  const downloadStockInPDF = async () => {
-    try {
-      if (stockInPreview.length === 0) {
-        toast({
-          title: "Tidak ada data",
-          description: "Tidak ada data untuk diunduh. Silakan sesuaikan filter.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      toast({ title: "Mengunduh PDF...", description: "Mohon tunggu sebentar" });
-
-      let query = supabase
-        .from("stock_in")
-        .select("*, products(name, user_id), jenis_stok_masuk(name), profiles!stock_in_user_id_fkey(name)")
-        .gte("created_at", dateRange.from.toISOString())
-        .lte("created_at", dateRange.to.toISOString())
-        .order("created_at", { ascending: false });
-
-      if (userRole === "user" && user) {
-        query = query.eq("user_id", user.id);
-      }
-
-      if (productFilter) {
-        query = query.eq("product_id", productFilter);
-      }
-
-      const { data } = await query;
-      const filtered = data?.filter(item => !variantFilter || item.variant === variantFilter) || [];
-
-      const doc = new jsPDF();
-
-      doc.setFontSize(18);
-      doc.text("Riwayat Stok Masuk", 14, 20);
-
-      doc.setFontSize(10);
-      doc.text(`Periode: ${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}`, 14, 28);
-      doc.text(`Dicetak: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 34);
-
-      const headers = userRole === "superadmin"
-        ? [["Tanggal", "Produk", "Varian", "Pemilik", "Jenis", "Qty"]]
-        : [["Tanggal", "Produk", "Varian", "Jenis", "Qty"]];
-
-      const body = filtered.map((item: any) =>
-        userRole === "superadmin"
-          ? [
-              format(new Date(item.created_at), "dd/MM/yyyy"),
-              item.products?.name || "-",
-              item.variant || "-",
-              item.profiles?.name || "-",
-              item.jenis_stok_masuk?.name || "-",
-              item.qty
-            ]
-          : [
-              format(new Date(item.created_at), "dd/MM/yyyy"),
-              item.products?.name || "-",
-              item.variant || "-",
-              item.jenis_stok_masuk?.name || "-",
-              item.qty
-            ]
-      );
-
-      doc.autoTable({
-        head: headers,
-        body: body,
-        startY: 40,
-        theme: 'grid',
-        headStyles: { fillColor: [34, 197, 94] },
-      });
-
-      doc.save(`Riwayat-Stok-Masuk-${format(new Date(), "yyyyMMdd-HHmmss")}.pdf`);
-      toast({ title: "Berhasil", description: "PDF berhasil diunduh" });
-    } catch (error) {
-      console.error(error);
-      toast({ title: "Gagal", description: "Terjadi kesalahan saat mengunduh PDF", variant: "destructive" });
-    }
-  };
-
-  const downloadStockOutPDF = async () => {
-    try {
-      if (stockOutPreview.length === 0) {
-        toast({
-          title: "Tidak ada data",
-          description: "Tidak ada data untuk diunduh. Silakan sesuaikan filter.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      toast({ title: "Mengunduh PDF...", description: "Mohon tunggu sebentar" });
-
-      let query = supabase
-        .from("stock_out")
-        .select("*, products(name, user_id), jenis_stok_keluar(name), profiles!stock_out_user_id_fkey(name)")
-        .gte("created_at", dateRange.from.toISOString())
-        .lte("created_at", dateRange.to.toISOString())
-        .order("created_at", { ascending: false });
-
-      if (userRole === "user" && user) {
-        query = query.eq("user_id", user.id);
-      }
-
-      if (productFilter) {
-        query = query.eq("product_id", productFilter);
-      }
-
-      const { data } = await query;
-      const filtered = data?.filter(item => !variantFilter || item.variant === variantFilter) || [];
-
-      const doc = new jsPDF();
-
-      doc.setFontSize(18);
-      doc.text("Riwayat Stok Keluar", 14, 20);
-
-      doc.setFontSize(10);
-      doc.text(`Periode: ${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}`, 14, 28);
-      doc.text(`Dicetak: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 34);
-
-      const headers = userRole === "superadmin"
-        ? [["Tanggal", "Produk", "Varian", "Pemilik", "Jenis", "Qty"]]
-        : [["Tanggal", "Produk", "Varian", "Jenis", "Qty"]];
-
-      const body = filtered.map((item: any) =>
-        userRole === "superadmin"
-          ? [
-              format(new Date(item.created_at), "dd/MM/yyyy"),
-              item.products?.name || "-",
-              item.variant || "-",
-              item.profiles?.name || "-",
-              item.jenis_stok_keluar?.name || "-",
-              item.qty
-            ]
-          : [
-              format(new Date(item.created_at), "dd/MM/yyyy"),
-              item.products?.name || "-",
-              item.variant || "-",
-              item.jenis_stok_keluar?.name || "-",
-              item.qty
-            ]
-      );
-
-      doc.autoTable({
-        head: headers,
-        body: body,
-        startY: 40,
-        theme: 'grid',
-        headStyles: { fillColor: [239, 68, 68] },
-      });
-
-      doc.save(`Riwayat-Stok-Keluar-${format(new Date(), "yyyyMMdd-HHmmss")}.pdf`);
-      toast({ title: "Berhasil", description: "PDF berhasil diunduh" });
-    } catch (error) {
-      console.error(error);
-      toast({ title: "Gagal", description: "Terjadi kesalahan saat mengunduh PDF", variant: "destructive" });
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div>
@@ -485,13 +200,6 @@ function LaporanContent() {
 
         {/* Filters */}
         <Card className="mt-4 p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-sm font-medium">Filter Laporan</h3>
-            <Button variant="ghost" size="sm" onClick={resetFilters}>
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Reset Filter
-            </Button>
-          </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label>Produk</Label>
@@ -505,7 +213,7 @@ function LaporanContent() {
               />
             </div>
 
-            {hasVariants && selectedProduct && (
+            {hasVariants && (
               <div className="space-y-2">
                 <Label>Varian</Label>
                 <Select value={variantFilter} onValueChange={setVariantFilter}>
@@ -541,15 +249,9 @@ function LaporanContent() {
                     selected={{ from: dateRange.from, to: dateRange.to }}
                     onSelect={(range) => {
                       if (range?.from) {
-                        const fromDate = new Date(range.from);
-                        fromDate.setHours(0, 0, 0, 0);
-
-                        const toDate = range.to ? new Date(range.to) : new Date(range.from);
-                        toDate.setHours(23, 59, 59, 999);
-
                         setDateRange({
-                          from: fromDate,
-                          to: toDate,
+                          from: new Date(range.from.setHours(0, 0, 0, 0)),
+                          to: range.to ? new Date(range.to.setHours(23, 59, 59, 999)) : new Date(range.from.setHours(23, 59, 59, 999)),
                         });
                       }
                     }}
@@ -569,7 +271,7 @@ function LaporanContent() {
                 <CardTitle>Preview Laporan Stok Produk</CardTitle>
                 <CardDescription>Menampilkan 10 item pertama</CardDescription>
               </div>
-              <Button onClick={downloadStockPDF}>
+              <Button>
                 <Download className="mr-2 h-4 w-4" />
                 Unduh PDF
               </Button>
@@ -620,7 +322,7 @@ function LaporanContent() {
                 <CardTitle>Preview Riwayat Stok Masuk</CardTitle>
                 <CardDescription>Menampilkan 10 transaksi terakhir</CardDescription>
               </div>
-              <Button variant="secondary" onClick={downloadStockInPDF}>
+              <Button variant="secondary">
                 <Download className="mr-2 h-4 w-4" />
                 Unduh PDF
               </Button>
@@ -671,7 +373,7 @@ function LaporanContent() {
                 <CardTitle>Preview Riwayat Stok Keluar</CardTitle>
                 <CardDescription>Menampilkan 10 transaksi terakhir</CardDescription>
               </div>
-              <Button variant="outline" onClick={downloadStockOutPDF}>
+              <Button variant="outline">
                 <Download className="mr-2 h-4 w-4" />
                 Unduh PDF
               </Button>
