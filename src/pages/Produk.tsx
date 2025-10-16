@@ -319,9 +319,9 @@ function ProdukContent() {
                     return product.variants.map((variant: string, idx: number) => {
                       const stock = stockInfo.find(s => s.variant === variant)?.stock || 0;
                       return (
-                        <TableRow key={`${product.id}-${variant}`} className="border-b-0">
+                        <TableRow key={`${product.id}-${variant}`}>
                           {idx === 0 && (
-                            <TableCell rowSpan={product.variants.length} className="font-medium align-top border-b">
+                            <TableCell rowSpan={product.variants.length} className="font-medium align-top">
                               <div className="flex flex-col gap-1">
                                 <span>{product.name}</span>
                                 {!canEdit && product.profiles?.name && (
@@ -332,22 +332,22 @@ function ProdukContent() {
                               </div>
                             </TableCell>
                           )}
-                           <TableCell className={`py-2 ${idx === product.variants.length - 1 ? 'border-b' : ''}`}>
+                           <TableCell className="py-2">
                              <Badge variant="outline" className={`${variantColors[idx % variantColors.length]} border`}>
                                {variant}
                              </Badge>
                            </TableCell>
-                           <TableCell className={`py-2 ${idx === product.variants.length - 1 ? 'border-b' : ''}`}>
+                           <TableCell className="py-2">
                              <div className="flex items-center gap-1">
                                <Package2 className="h-4 w-4 text-muted-foreground" />
                                <span className="font-medium">{stock}</span>
                              </div>
                            </TableCell>
                           {idx === 0 && (
-                            <TableCell rowSpan={product.variants.length} className="text-right align-top border-b">
+                            <TableCell rowSpan={product.variants.length} className="text-right align-top">
                               <div className="flex justify-end gap-2">
-                                <Button
-                                  variant="ghost"
+                                <Button 
+                                  variant="ghost" 
                                   size="icon"
                                   onClick={() => navigate(`/produk/${product.id}/history`)}
                                 >
@@ -355,8 +355,8 @@ function ProdukContent() {
                                 </Button>
                                 {canEdit && (
                                   <>
-                                     <Button
-                                      variant="ghost"
+                                     <Button 
+                                      variant="ghost" 
                                       size="icon"
                                       onClick={() => {
                                         setEditDialog(product);

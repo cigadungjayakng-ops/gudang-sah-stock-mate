@@ -1,16 +1,15 @@
-import {
-  Package,
-  LayoutDashboard,
-  TrendingDown,
-  TrendingUp,
+import { 
+  Package, 
+  LayoutDashboard, 
+  TrendingDown, 
+  TrendingUp, 
   FileText,
   Users,
   Building2,
   FolderInput,
   FolderOutput,
   LogOut,
-  GitBranch,
-  UserCircle
+  GitBranch
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,21 +75,8 @@ export function AppSidebar() {
   const menuItems = userRole === "superadmin" ? superadminMenuItems : userMenuItems;
 
   return (
-    <Sidebar className="border-r border-sidebar-border relative overflow-hidden">
-      <div
-        className="absolute inset-0 opacity-5 pointer-events-none"
-        style={{
-          backgroundImage: `
-            linear-gradient(45deg, hsl(var(--sidebar-accent)) 25%, transparent 25%),
-            linear-gradient(-45deg, hsl(var(--sidebar-accent)) 25%, transparent 25%),
-            linear-gradient(45deg, transparent 75%, hsl(var(--sidebar-accent)) 75%),
-            linear-gradient(-45deg, transparent 75%, hsl(var(--sidebar-accent)) 75%)
-          `,
-          backgroundSize: '20px 20px',
-          backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px'
-        }}
-      />
-      <SidebarHeader className="border-b border-sidebar-border p-4 relative z-10">
+    <Sidebar className="border-r border-sidebar-border">
+      <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary">
             <Package className="h-6 w-6 text-sidebar-primary-foreground" />
@@ -102,12 +88,14 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="relative z-10">
+      <SidebarContent>
         {/* User Info */}
         <div className="border-b border-sidebar-border p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 shadow-md">
-              <UserCircle className="h-6 w-6 text-white" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sidebar-accent">
+              <span className="text-sm font-medium text-sidebar-accent-foreground">
+                {profileName.charAt(0).toUpperCase()}
+              </span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-foreground truncate">{profileName}</p>
@@ -171,7 +159,7 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border p-4 relative z-10">
+      <SidebarFooter className="border-t border-sidebar-border p-4">
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button
