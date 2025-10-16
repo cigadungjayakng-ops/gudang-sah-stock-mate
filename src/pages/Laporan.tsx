@@ -17,6 +17,9 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { useToast } from "@/hooks/use-toast";
 
 interface Product {
   id: string;
@@ -32,6 +35,7 @@ interface User {
 
 function LaporanContent() {
   const { user, userRole } = useAuth();
+  const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState("stok-produk");
@@ -184,6 +188,241 @@ function LaporanContent() {
   const selectedProduct = products.find(p => p.id === productFilter);
   const hasVariants = selectedProduct?.variants && selectedProduct.variants.length > 0;
 
+  const downloadStockPDF = async () => {
+    try {
+      toast({ title: "Mengunduh PDF...", description: "Mohon tunggu sebentar" });
+
+      let stockInQuery = supabase
+        .from("stock_in")
+        .select("product_id, variant, qty, products(name, user_id), profiles!stock_in_user_id_fkey(name)")
+        .gte("created_at", dateRange.from.toISOString())
+        .lte("created_at", dateRange.to.toISOString());
+
+      let stockOutQuery = supabase
+        .from("stock_out")
+        .select("product_id, variant, qty")
+        .gte("created_at", dateRange.from.toISOString())
+        .lte("created_at", dateRange.to.toISOString());
+
+      if (userRole === "user" && user) {
+        stockInQuery = stockInQuery.eq("user_id", user.id);
+        stockOutQuery = stockOutQuery.eq("user_id", user.id);
+      }
+
+      if (productFilter) {
+        stockInQuery = stockInQuery.eq("product_id", productFilter);
+        stockOutQuery = stockOutQuery.eq("product_id", productFilter);
+      }
+
+      const [{ data: stockIn }, { data: stockOut }] = await Promise.all([
+        stockInQuery,
+        stockOutQuery,
+      ]);
+
+      const stockMap = new Map<string, any>();
+
+      stockIn?.forEach((item: any) => {
+        const key = `${item.product_id}-${item.variant || "null"}`;
+        const current = stockMap.get(key) || {
+          product_name: item.products?.name || "",
+          variant: item.variant,
+          stock_in: 0,
+          stock_out: 0,
+          owner: userRole === "superadmin" ? item.profiles?.name : null,
+        };
+        stockMap.set(key, { ...current, stock_in: current.stock_in + item.qty });
+      });
+
+      stockOut?.forEach((item: any) => {
+        const key = `${item.product_id}-${item.variant || "null"}`;
+        const current = stockMap.get(key);
+        if (current) {
+          stockMap.set(key, { ...current, stock_out: current.stock_out + item.qty });
+        }
+      });
+
+      const data = Array.from(stockMap.entries())
+        .map(([, value]) => ({
+          ...value,
+          stock: value.stock_in - value.stock_out,
+        }))
+        .filter(item => !variantFilter || item.variant === variantFilter);
+
+      const doc = new jsPDF();
+
+      doc.setFontSize(18);
+      doc.text("Laporan Stok Produk", 14, 20);
+
+      doc.setFontSize(10);
+      doc.text(`Periode: ${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}`, 14, 28);
+      doc.text(`Dicetak: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 34);
+
+      const headers = userRole === "superadmin"
+        ? [["Produk", "Varian", "Pemilik", "Masuk", "Keluar", "Stok"]]
+        : [["Produk", "Varian", "Masuk", "Keluar", "Stok"]];
+
+      const body = data.map(item =>
+        userRole === "superadmin"
+          ? [item.product_name, item.variant || "-", item.owner || "-", item.stock_in, item.stock_out, item.stock]
+          : [item.product_name, item.variant || "-", item.stock_in, item.stock_out, item.stock]
+      );
+
+      autoTable(doc, {
+        head: headers,
+        body: body,
+        startY: 40,
+        theme: 'grid',
+        headStyles: { fillColor: [59, 130, 246] },
+      });
+
+      doc.save(`Laporan-Stok-${format(new Date(), "yyyyMMdd-HHmmss")}.pdf`);
+      toast({ title: "Berhasil", description: "PDF berhasil diunduh" });
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Gagal", description: "Terjadi kesalahan saat mengunduh PDF", variant: "destructive" });
+    }
+  };
+
+  const downloadStockInPDF = async () => {
+    try {
+      toast({ title: "Mengunduh PDF...", description: "Mohon tunggu sebentar" });
+
+      let query = supabase
+        .from("stock_in")
+        .select("*, products(name, user_id), jenis_stok_masuk(name), profiles!stock_in_user_id_fkey(name)")
+        .gte("created_at", dateRange.from.toISOString())
+        .lte("created_at", dateRange.to.toISOString())
+        .order("created_at", { ascending: false });
+
+      if (userRole === "user" && user) {
+        query = query.eq("user_id", user.id);
+      }
+
+      if (productFilter) {
+        query = query.eq("product_id", productFilter);
+      }
+
+      const { data } = await query;
+      const filtered = data?.filter(item => !variantFilter || item.variant === variantFilter) || [];
+
+      const doc = new jsPDF();
+
+      doc.setFontSize(18);
+      doc.text("Riwayat Stok Masuk", 14, 20);
+
+      doc.setFontSize(10);
+      doc.text(`Periode: ${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}`, 14, 28);
+      doc.text(`Dicetak: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 34);
+
+      const headers = userRole === "superadmin"
+        ? [["Tanggal", "Produk", "Varian", "Pemilik", "Jenis", "Qty"]]
+        : [["Tanggal", "Produk", "Varian", "Jenis", "Qty"]];
+
+      const body = filtered.map((item: any) =>
+        userRole === "superadmin"
+          ? [
+              format(new Date(item.created_at), "dd/MM/yyyy"),
+              item.products?.name || "-",
+              item.variant || "-",
+              item.profiles?.name || "-",
+              item.jenis_stok_masuk?.name || "-",
+              item.qty
+            ]
+          : [
+              format(new Date(item.created_at), "dd/MM/yyyy"),
+              item.products?.name || "-",
+              item.variant || "-",
+              item.jenis_stok_masuk?.name || "-",
+              item.qty
+            ]
+      );
+
+      autoTable(doc, {
+        head: headers,
+        body: body,
+        startY: 40,
+        theme: 'grid',
+        headStyles: { fillColor: [34, 197, 94] },
+      });
+
+      doc.save(`Riwayat-Stok-Masuk-${format(new Date(), "yyyyMMdd-HHmmss")}.pdf`);
+      toast({ title: "Berhasil", description: "PDF berhasil diunduh" });
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Gagal", description: "Terjadi kesalahan saat mengunduh PDF", variant: "destructive" });
+    }
+  };
+
+  const downloadStockOutPDF = async () => {
+    try {
+      toast({ title: "Mengunduh PDF...", description: "Mohon tunggu sebentar" });
+
+      let query = supabase
+        .from("stock_out")
+        .select("*, products(name, user_id), jenis_stok_keluar(name), profiles!stock_out_user_id_fkey(name)")
+        .gte("created_at", dateRange.from.toISOString())
+        .lte("created_at", dateRange.to.toISOString())
+        .order("created_at", { ascending: false });
+
+      if (userRole === "user" && user) {
+        query = query.eq("user_id", user.id);
+      }
+
+      if (productFilter) {
+        query = query.eq("product_id", productFilter);
+      }
+
+      const { data } = await query;
+      const filtered = data?.filter(item => !variantFilter || item.variant === variantFilter) || [];
+
+      const doc = new jsPDF();
+
+      doc.setFontSize(18);
+      doc.text("Riwayat Stok Keluar", 14, 20);
+
+      doc.setFontSize(10);
+      doc.text(`Periode: ${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}`, 14, 28);
+      doc.text(`Dicetak: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 34);
+
+      const headers = userRole === "superadmin"
+        ? [["Tanggal", "Produk", "Varian", "Pemilik", "Jenis", "Qty"]]
+        : [["Tanggal", "Produk", "Varian", "Jenis", "Qty"]];
+
+      const body = filtered.map((item: any) =>
+        userRole === "superadmin"
+          ? [
+              format(new Date(item.created_at), "dd/MM/yyyy"),
+              item.products?.name || "-",
+              item.variant || "-",
+              item.profiles?.name || "-",
+              item.jenis_stok_keluar?.name || "-",
+              item.qty
+            ]
+          : [
+              format(new Date(item.created_at), "dd/MM/yyyy"),
+              item.products?.name || "-",
+              item.variant || "-",
+              item.jenis_stok_keluar?.name || "-",
+              item.qty
+            ]
+      );
+
+      autoTable(doc, {
+        head: headers,
+        body: body,
+        startY: 40,
+        theme: 'grid',
+        headStyles: { fillColor: [239, 68, 68] },
+      });
+
+      doc.save(`Riwayat-Stok-Keluar-${format(new Date(), "yyyyMMdd-HHmmss")}.pdf`);
+      toast({ title: "Berhasil", description: "PDF berhasil diunduh" });
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Gagal", description: "Terjadi kesalahan saat mengunduh PDF", variant: "destructive" });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -213,7 +452,7 @@ function LaporanContent() {
               />
             </div>
 
-            {hasVariants && (
+            {hasVariants && selectedProduct && (
               <div className="space-y-2">
                 <Label>Varian</Label>
                 <Select value={variantFilter} onValueChange={setVariantFilter}>
@@ -249,9 +488,15 @@ function LaporanContent() {
                     selected={{ from: dateRange.from, to: dateRange.to }}
                     onSelect={(range) => {
                       if (range?.from) {
+                        const fromDate = new Date(range.from);
+                        fromDate.setHours(0, 0, 0, 0);
+
+                        const toDate = range.to ? new Date(range.to) : new Date(range.from);
+                        toDate.setHours(23, 59, 59, 999);
+
                         setDateRange({
-                          from: new Date(range.from.setHours(0, 0, 0, 0)),
-                          to: range.to ? new Date(range.to.setHours(23, 59, 59, 999)) : new Date(range.from.setHours(23, 59, 59, 999)),
+                          from: fromDate,
+                          to: toDate,
                         });
                       }
                     }}
@@ -271,7 +516,7 @@ function LaporanContent() {
                 <CardTitle>Preview Laporan Stok Produk</CardTitle>
                 <CardDescription>Menampilkan 10 item pertama</CardDescription>
               </div>
-              <Button>
+              <Button onClick={downloadStockPDF}>
                 <Download className="mr-2 h-4 w-4" />
                 Unduh PDF
               </Button>
@@ -322,7 +567,7 @@ function LaporanContent() {
                 <CardTitle>Preview Riwayat Stok Masuk</CardTitle>
                 <CardDescription>Menampilkan 10 transaksi terakhir</CardDescription>
               </div>
-              <Button variant="secondary">
+              <Button variant="secondary" onClick={downloadStockInPDF}>
                 <Download className="mr-2 h-4 w-4" />
                 Unduh PDF
               </Button>
@@ -373,7 +618,7 @@ function LaporanContent() {
                 <CardTitle>Preview Riwayat Stok Keluar</CardTitle>
                 <CardDescription>Menampilkan 10 transaksi terakhir</CardDescription>
               </div>
-              <Button variant="outline">
+              <Button variant="outline" onClick={downloadStockOutPDF}>
                 <Download className="mr-2 h-4 w-4" />
                 Unduh PDF
               </Button>
