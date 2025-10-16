@@ -17,7 +17,6 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "@/hooks/use-toast";
 
 interface Product {
   id: string;
@@ -36,7 +35,6 @@ function LaporanContent() {
   const [products, setProducts] = useState<Product[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState("stok-produk");
-  const [isGenerating, setIsGenerating] = useState(false);
   
   // Filters for Laporan Stok Produk
   const [productFilter, setProductFilter] = useState("");
@@ -59,7 +57,7 @@ function LaporanContent() {
     if (activeTab === "stok-produk") fetchStockPreview();
     if (activeTab === "stok-masuk") fetchStockInPreview();
     if (activeTab === "stok-keluar") fetchStockOutPreview();
-  }, [activeTab, productFilter, variantFilter, dateRange, user]);
+  }, [activeTab, productFilter, variantFilter, dateRange]);
 
   const fetchProducts = async () => {
     if (!user) return;
@@ -186,160 +184,6 @@ function LaporanContent() {
   const selectedProduct = products.find(p => p.id === productFilter);
   const hasVariants = selectedProduct?.variants && selectedProduct.variants.length > 0;
 
-  const generatePDF = async (type: 'stock' | 'stock-in' | 'stock-out') => {
-    setIsGenerating(true);
-    try {
-      let query;
-      let filename;
-      let title;
-
-      if (type === 'stock') {
-        let stockInQuery = supabase
-          .from("stock_in")
-          .select("product_id, variant, qty, products(name, user_id), profiles!stock_in_user_id_fkey(name)")
-          .gte("created_at", dateRange.from.toISOString())
-          .lte("created_at", dateRange.to.toISOString());
-
-        let stockOutQuery = supabase
-          .from("stock_out")
-          .select("product_id, variant, qty")
-          .gte("created_at", dateRange.from.toISOString())
-          .lte("created_at", dateRange.to.toISOString());
-
-        if (userRole === "user" && user) {
-          stockInQuery = stockInQuery.eq("user_id", user.id);
-          stockOutQuery = stockOutQuery.eq("user_id", user.id);
-        }
-
-        if (productFilter) {
-          stockInQuery = stockInQuery.eq("product_id", productFilter);
-          stockOutQuery = stockOutQuery.eq("product_id", productFilter);
-        }
-
-        const [{ data: stockIn }, { data: stockOut }] = await Promise.all([stockInQuery, stockOutQuery]);
-
-        const stockMap = new Map<string, any>();
-
-        stockIn?.forEach((item: any) => {
-          const key = `${item.product_id}-${item.variant || "null"}`;
-          const current = stockMap.get(key) || {
-            product_name: item.products?.name || "",
-            variant: item.variant,
-            stock_in: 0,
-            stock_out: 0,
-            owner: userRole === "superadmin" ? item.profiles?.name : null,
-          };
-          stockMap.set(key, { ...current, stock_in: current.stock_in + item.qty });
-        });
-
-        stockOut?.forEach((item: any) => {
-          const key = `${item.product_id}-${item.variant || "null"}`;
-          const current = stockMap.get(key);
-          if (current) {
-            stockMap.set(key, { ...current, stock_out: current.stock_out + item.qty });
-          }
-        });
-
-        const data = Array.from(stockMap.entries())
-          .map(([, value]) => ({
-            ...value,
-            stock: value.stock_in - value.stock_out,
-          }))
-          .filter(item => !variantFilter || item.variant === variantFilter);
-
-        downloadCSV(data, 'laporan-stok-produk', ['product_name', 'variant', 'owner', 'stock_in', 'stock_out', 'stock']);
-      } else if (type === 'stock-in') {
-        query = supabase
-          .from("stock_in")
-          .select("*, products(name, user_id), jenis_stok_masuk(name), profiles!stock_in_user_id_fkey(name)")
-          .gte("created_at", dateRange.from.toISOString())
-          .lte("created_at", dateRange.to.toISOString())
-          .order("created_at", { ascending: false });
-
-        if (userRole === "user" && user) {
-          query = query.eq("user_id", user.id);
-        }
-
-        if (productFilter) {
-          query = query.eq("product_id", productFilter);
-        }
-
-        const { data } = await query;
-        const filtered = data?.filter(item => !variantFilter || item.variant === variantFilter)
-          .map((item: any) => ({
-            tanggal: format(new Date(item.created_at), "dd/MM/yyyy"),
-            produk: item.products?.name,
-            variant: item.variant || '-',
-            owner: userRole === "superadmin" ? item.profiles?.name : undefined,
-            jenis: item.jenis_stok_masuk?.name,
-            qty: item.qty
-          })) || [];
-
-        downloadCSV(filtered, 'laporan-stok-masuk', ['tanggal', 'produk', 'variant', 'owner', 'jenis', 'qty']);
-      } else {
-        query = supabase
-          .from("stock_out")
-          .select("*, products(name, user_id), jenis_stok_keluar(name), profiles!stock_out_user_id_fkey(name)")
-          .gte("created_at", dateRange.from.toISOString())
-          .lte("created_at", dateRange.to.toISOString())
-          .order("created_at", { ascending: false });
-
-        if (userRole === "user" && user) {
-          query = query.eq("user_id", user.id);
-        }
-
-        if (productFilter) {
-          query = query.eq("product_id", productFilter);
-        }
-
-        const { data } = await query;
-        const filtered = data?.filter(item => !variantFilter || item.variant === variantFilter)
-          .map((item: any) => ({
-            tanggal: format(new Date(item.created_at), "dd/MM/yyyy"),
-            produk: item.products?.name,
-            variant: item.variant || '-',
-            owner: userRole === "superadmin" ? item.profiles?.name : undefined,
-            jenis: item.jenis_stok_keluar?.name,
-            qty: item.qty
-          })) || [];
-
-        downloadCSV(filtered, 'laporan-stok-keluar', ['tanggal', 'produk', 'variant', 'owner', 'jenis', 'qty']);
-      }
-
-      toast({
-        title: "Berhasil",
-        description: "Laporan berhasil diunduh",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Gagal mengunduh laporan",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const downloadCSV = (data: any[], filename: string, headers: string[]) => {
-    const filteredHeaders = userRole === "superadmin" ? headers : headers.filter(h => h !== 'owner');
-    const csvHeaders = filteredHeaders.join(',');
-    const csvRows = data.map(row =>
-      filteredHeaders.map(header => {
-        const value = row[header];
-        return value !== undefined && value !== null ? `"${value}"` : '""';
-      }).join(',')
-    );
-    const csv = [csvHeaders, ...csvRows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${filename}-${format(new Date(), 'yyyyMMdd')}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
-
   return (
     <div className="space-y-6">
       <div>
@@ -360,15 +204,9 @@ function LaporanContent() {
             <div className="space-y-2">
               <Label>Produk</Label>
               <Combobox
-                options={[
-                  { value: "", label: "Semua Produk" },
-                  ...products.map(p => ({ value: p.id, label: p.name }))
-                ]}
+                options={products.map(p => ({ value: p.id, label: p.name }))}
                 value={productFilter}
-                onValueChange={(value) => {
-                  setProductFilter(value);
-                  setVariantFilter("");
-                }}
+                onValueChange={setProductFilter}
                 placeholder="Semua Produk"
                 searchPlaceholder="Cari produk..."
                 emptyText="Produk tidak ditemukan"
@@ -405,25 +243,20 @@ function LaporanContent() {
                       : "Pilih tanggal"}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 z-50" align="start">
+                <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     mode="range"
                     selected={{ from: dateRange.from, to: dateRange.to }}
                     onSelect={(range) => {
                       if (range?.from) {
-                        const fromDate = new Date(range.from);
-                        fromDate.setHours(0, 0, 0, 0);
-
-                        const toDate = range.to ? new Date(range.to) : new Date(range.from);
-                        toDate.setHours(23, 59, 59, 999);
-
                         setDateRange({
-                          from: fromDate,
-                          to: toDate,
+                          from: new Date(range.from.setHours(0, 0, 0, 0)),
+                          to: range.to ? new Date(range.to.setHours(23, 59, 59, 999)) : new Date(range.from.setHours(23, 59, 59, 999)),
                         });
                       }
                     }}
                     numberOfMonths={2}
+                    className={cn("p-3 pointer-events-auto")}
                   />
                 </PopoverContent>
               </Popover>
@@ -438,9 +271,9 @@ function LaporanContent() {
                 <CardTitle>Preview Laporan Stok Produk</CardTitle>
                 <CardDescription>Menampilkan 10 item pertama</CardDescription>
               </div>
-              <Button onClick={() => generatePDF('stock')} disabled={isGenerating}>
+              <Button>
                 <Download className="mr-2 h-4 w-4" />
-                {isGenerating ? "Mengunduh..." : "Unduh CSV"}
+                Unduh PDF
               </Button>
             </CardHeader>
             <CardContent>
@@ -489,9 +322,9 @@ function LaporanContent() {
                 <CardTitle>Preview Riwayat Stok Masuk</CardTitle>
                 <CardDescription>Menampilkan 10 transaksi terakhir</CardDescription>
               </div>
-              <Button onClick={() => generatePDF('stock-in')} disabled={isGenerating}>
+              <Button variant="secondary">
                 <Download className="mr-2 h-4 w-4" />
-                {isGenerating ? "Mengunduh..." : "Unduh CSV"}
+                Unduh PDF
               </Button>
             </CardHeader>
             <CardContent>
@@ -540,9 +373,9 @@ function LaporanContent() {
                 <CardTitle>Preview Riwayat Stok Keluar</CardTitle>
                 <CardDescription>Menampilkan 10 transaksi terakhir</CardDescription>
               </div>
-              <Button onClick={() => generatePDF('stock-out')} disabled={isGenerating}>
+              <Button variant="outline">
                 <Download className="mr-2 h-4 w-4" />
-                {isGenerating ? "Mengunduh..." : "Unduh CSV"}
+                Unduh PDF
               </Button>
             </CardHeader>
             <CardContent>

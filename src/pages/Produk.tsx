@@ -332,12 +332,12 @@ function ProdukContent() {
                               </div>
                             </TableCell>
                           )}
-                           <TableCell className={`py-1 ${idx !== product.variants.length - 1 ? 'border-b border-dashed border-gray-200' : 'border-b'} border-l-4 border-l-primary/30`}>
+                           <TableCell className={`py-1 ${idx !== product.variants.length - 1 ? 'border-b border-dashed border-gray-200' : 'border-b'} border-r border-gray-200`}>
                              <Badge variant="outline" className={`${variantColors[idx % variantColors.length]} border`}>
                                {variant}
                              </Badge>
                            </TableCell>
-                           <TableCell className={`py-1 ${idx !== product.variants.length - 1 ? 'border-b border-dashed border-gray-200' : 'border-b'}`}>
+                           <TableCell className={`py-1 ${idx !== product.variants.length - 1 ? 'border-b border-dashed border-gray-200' : 'border-b'} border-r border-gray-200`}>
                              <div className="flex items-center gap-1">
                                <Package2 className="h-4 w-4 text-muted-foreground" />
                                <span className="font-medium">{stock}</span>
