@@ -3,12 +3,25 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, TrendingDown, TrendingUp, BarChart3 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
 
 interface Stats {
   totalProducts: number;
   totalStockIn: number;
   totalStockOut: number;
   totalStock: number;
+}
+
+interface RecentStock {
+  id: string;
+  created_at: string;
+  qty: number;
+  products: { name: string };
+  variant: string | null;
+  jenis_stok_masuk?: { name: string };
+  jenis_stok_keluar?: { name: string };
 }
 
 export default function Dashboard() {
@@ -18,10 +31,14 @@ export default function Dashboard() {
     totalStockOut: 0,
     totalStock: 0,
   });
+  const [recentStockIn, setRecentStockIn] = useState<RecentStock[]>([]);
+  const [recentStockOut, setRecentStockOut] = useState<RecentStock[]>([]);
   const { user, userRole } = useAuth();
 
   useEffect(() => {
     fetchStats();
+    fetchRecentStockIn();
+    fetchRecentStockOut();
   }, [user, userRole]);
 
   const fetchStats = async () => {
@@ -62,6 +79,40 @@ export default function Dashboard() {
       totalStockOut,
       totalStock: totalStockIn - totalStockOut,
     });
+  };
+
+  const fetchRecentStockIn = async () => {
+    if (!user) return;
+
+    let query = supabase
+      .from("stock_in")
+      .select("*, products(name), jenis_stok_masuk(name)")
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (userRole === "user") {
+      query = query.eq("user_id", user.id);
+    }
+
+    const { data } = await query;
+    setRecentStockIn(data || []);
+  };
+
+  const fetchRecentStockOut = async () => {
+    if (!user) return;
+
+    let query = supabase
+      .from("stock_out")
+      .select("*, products(name), jenis_stok_keluar(name)")
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (userRole === "user") {
+      query = query.eq("user_id", user.id);
+    }
+
+    const { data } = await query;
+    setRecentStockOut(data || []);
   };
 
 
@@ -119,6 +170,87 @@ export default function Dashboard() {
         ))}
       </div>
 
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle>10 Stok Masuk Terbaru</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tanggal</TableHead>
+                  <TableHead>Produk</TableHead>
+                  <TableHead>Varian</TableHead>
+                  <TableHead>Jenis</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recentStockIn.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      Belum ada data
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  recentStockIn.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="text-xs">{format(new Date(item.created_at), "dd/MM/yy")}</TableCell>
+                      <TableCell className="font-medium text-sm">{item.products.name}</TableCell>
+                      <TableCell>
+                        {item.variant ? <Badge variant="secondary" className="text-xs">{item.variant}</Badge> : "-"}
+                      </TableCell>
+                      <TableCell className="text-xs">{item.jenis_stok_masuk?.name}</TableCell>
+                      <TableCell className="text-right font-medium">{item.qty}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle>10 Stok Keluar Terbaru</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tanggal</TableHead>
+                  <TableHead>Produk</TableHead>
+                  <TableHead>Varian</TableHead>
+                  <TableHead>Jenis</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recentStockOut.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      Belum ada data
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  recentStockOut.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="text-xs">{format(new Date(item.created_at), "dd/MM/yy")}</TableCell>
+                      <TableCell className="font-medium text-sm">{item.products.name}</TableCell>
+                      <TableCell>
+                        {item.variant ? <Badge variant="secondary" className="text-xs">{item.variant}</Badge> : "-"}
+                      </TableCell>
+                      <TableCell className="text-xs">{item.jenis_stok_keluar?.name}</TableCell>
+                      <TableCell className="text-right font-medium">{item.qty}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

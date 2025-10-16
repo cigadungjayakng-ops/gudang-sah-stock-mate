@@ -49,10 +49,10 @@ const superadminMenuItems = [
 ];
 
 const adminMenuItems = [
-  { title: "Kelola Pengguna", url: "/admin/users", icon: Users },
-  { title: "Kelola Cabang", url: "/admin/cabang", icon: Building2 },
-  { title: "Jenis Stok Masuk", url: "/admin/jenis-stok-masuk", icon: FolderInput },
-  { title: "Jenis Stok Keluar", url: "/admin/jenis-stok-keluar", icon: FolderOutput },
+  { title: "Kelola Pengguna", url: "/admin/users", icon: Users, color: "text-blue-500" },
+  { title: "Kelola Cabang", url: "/admin/cabang", icon: Building2, color: "text-purple-500" },
+  { title: "Jenis Stok Masuk", url: "/admin/jenis-stok-masuk", icon: FolderInput, color: "text-green-500" },
+  { title: "Jenis Stok Keluar", url: "/admin/jenis-stok-keluar", icon: FolderOutput, color: "text-orange-500" },
 ];
 
 export function AppSidebar() {
@@ -147,7 +147,7 @@ export function AppSidebar() {
                             : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50"
                         }
                       >
-                        <item.icon className="h-4 w-4" />
+                        <item.icon className={`h-4 w-4 ${item.color}`} />
                         <span>{item.title}</span>
                       </NavLink>
                     </SidebarMenuButton>

@@ -12,9 +12,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Plus, History, Edit, Trash2, Package2 } from "lucide-react";
+import { Plus, History, Edit, Trash2, Package2, X } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useProductStock } from "@/hooks/useProductStock";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 
 interface Product {
   id: string;
@@ -31,7 +33,10 @@ function ProdukContent() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialog, setEditDialog] = useState<Product | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: "", variants: "" });
+  const [formData, setFormData] = useState({ name: "", variants: [""] });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const { user, userRole } = useAuth();
 
   useEffect(() => {
@@ -81,14 +86,11 @@ function ProdukContent() {
     e.preventDefault();
     if (!user) return;
 
-    const variants = formData.variants
-      .split(",")
-      .map((v) => v.trim())
-      .filter((v) => v);
+    const variants = formData.variants.filter((v) => v.trim());
 
     const { error } = await supabase.from("products").insert({
       name: formData.name,
-      variants: variants,
+      variants: variants.length > 0 ? variants : [],
       user_id: user.id,
     });
 
@@ -104,7 +106,7 @@ function ProdukContent() {
         description: "Produk berhasil ditambahkan",
       });
       setDialogOpen(false);
-      setFormData({ name: "", variants: "" });
+      setFormData({ name: "", variants: [""] });
       fetchProducts();
     }
   };
@@ -113,14 +115,11 @@ function ProdukContent() {
     e.preventDefault();
     if (!editDialog) return;
 
-    const variants = formData.variants
-      .split(",")
-      .map((v) => v.trim())
-      .filter((v) => v);
+    const variants = formData.variants.filter((v) => v.trim());
 
     const { error } = await supabase
       .from("products")
-      .update({ name: formData.name, variants: variants })
+      .update({ name: formData.name, variants: variants.length > 0 ? variants : [] })
       .eq("id", editDialog.id);
 
     if (error) {
@@ -128,7 +127,7 @@ function ProdukContent() {
     } else {
       toast({ title: "Berhasil", description: "Produk berhasil diperbarui" });
       setEditDialog(null);
-      setFormData({ name: "", variants: "" });
+      setFormData({ name: "", variants: [""] });
       fetchProducts();
     }
   };
@@ -171,6 +170,16 @@ function ProdukContent() {
 
   const canEdit = userRole === "user";
 
+  const filteredProducts = products.filter((product) =>
+    product.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -186,7 +195,7 @@ function ProdukContent() {
                 Tambah Produk
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Tambah Produk Baru</DialogTitle>
               </DialogHeader>
@@ -201,13 +210,42 @@ function ProdukContent() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="variants">Varian (pisahkan dengan koma)</Label>
-                  <Input
-                    id="variants"
-                    placeholder="Merah, Biru, Hijau"
-                    value={formData.variants}
-                    onChange={(e) => setFormData({ ...formData, variants: e.target.value })}
-                  />
+                  <Label>Varian</Label>
+                  {formData.variants.map((variant, index) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        placeholder={`Varian ${index + 1}`}
+                        value={variant}
+                        onChange={(e) => {
+                          const newVariants = [...formData.variants];
+                          newVariants[index] = e.target.value;
+                          setFormData({ ...formData, variants: newVariants });
+                        }}
+                      />
+                      {formData.variants.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            const newVariants = formData.variants.filter((_, i) => i !== index);
+                            setFormData({ ...formData, variants: newVariants });
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFormData({ ...formData, variants: [...formData.variants, ""] })}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Tambah Varian
+                  </Button>
                 </div>
                 <Button type="submit" className="w-full">
                   Simpan
@@ -216,6 +254,36 @@ function ProdukContent() {
             </DialogContent>
           </Dialog>
         )}
+      </div>
+
+      <div className="flex items-center gap-4">
+        <div className="flex-1">
+          <Input
+            placeholder="Cari produk..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Label>Baris per halaman:</Label>
+          <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+            setItemsPerPage(Number(value));
+            setCurrentPage(1);
+          }}>
+            <SelectTrigger className="w-20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="25">25</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <Card className="shadow-sm">
@@ -235,14 +303,14 @@ function ProdukContent() {
                   Memuat data...
                 </TableCell>
               </TableRow>
-            ) : products.length === 0 ? (
+            ) : paginatedProducts.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-center">
-                  Belum ada produk
+                  {searchQuery ? "Produk tidak ditemukan" : "Belum ada produk"}
                 </TableCell>
               </TableRow>
             ) : (
-              products.flatMap((product) => {
+              paginatedProducts.flatMap((product) => {
                 const ProductRows = () => {
                   const { stockInfo } = useProductStock(product.id);
                   const variantColors = ["bg-primary/20 text-primary border-primary", "bg-secondary/20 text-secondary border-secondary", "bg-accent/20 text-accent border-accent", "bg-chart-4/20 text-chart-4 border-chart-4", "bg-chart-2/20 text-chart-2 border-chart-2"];
@@ -264,17 +332,17 @@ function ProdukContent() {
                               </div>
                             </TableCell>
                           )}
-                          <TableCell>
-                            <Badge variant="outline" className={variantColors[idx % variantColors.length]}>
-                              {variant}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Package2 className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">{stock}</span>
-                            </div>
-                          </TableCell>
+                           <TableCell className="py-2">
+                             <Badge variant="outline" className={`${variantColors[idx % variantColors.length]} border`}>
+                               {variant}
+                             </Badge>
+                           </TableCell>
+                           <TableCell className="py-2">
+                             <div className="flex items-center gap-1">
+                               <Package2 className="h-4 w-4 text-muted-foreground" />
+                               <span className="font-medium">{stock}</span>
+                             </div>
+                           </TableCell>
                           {idx === 0 && (
                             <TableCell rowSpan={product.variants.length} className="text-right align-top">
                               <div className="flex justify-end gap-2">
@@ -287,14 +355,14 @@ function ProdukContent() {
                                 </Button>
                                 {canEdit && (
                                   <>
-                                    <Button 
+                                     <Button 
                                       variant="ghost" 
                                       size="icon"
                                       onClick={() => {
                                         setEditDialog(product);
                                         setFormData({
                                           name: product.name,
-                                          variants: product.variants?.join(", ") || ""
+                                          variants: product.variants && product.variants.length > 0 ? product.variants : [""]
                                         });
                                       }}
                                     >
@@ -357,7 +425,7 @@ function ProdukContent() {
                                   setEditDialog(product);
                                   setFormData({
                                     name: product.name,
-                                    variants: product.variants?.join(", ") || ""
+                                    variants: product.variants && product.variants.length > 0 ? product.variants : [""]
                                   });
                                 }}
                               >
@@ -385,8 +453,38 @@ function ProdukContent() {
         </Table>
       </Card>
 
-      <Dialog open={!!editDialog} onOpenChange={() => { setEditDialog(null); setFormData({ name: "", variants: "" }); }}>
-        <DialogContent>
+      {totalPages > 1 && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <PaginationItem key={page}>
+                <PaginationLink
+                  onClick={() => setCurrentPage(page)}
+                  isActive={currentPage === page}
+                  className="cursor-pointer"
+                >
+                  {page}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            <PaginationItem>
+              <PaginationNext
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
+
+      <Dialog open={!!editDialog} onOpenChange={() => { setEditDialog(null); setFormData({ name: "", variants: [""] }); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Edit Produk</DialogTitle></DialogHeader>
           <form onSubmit={handleEdit} className="space-y-4">
             <div className="space-y-2">
@@ -394,8 +492,42 @@ function ProdukContent() {
               <Input id="edit-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-variants">Varian (pisahkan dengan koma)</Label>
-              <Input id="edit-variants" placeholder="Merah, Biru, Hijau" value={formData.variants} onChange={(e) => setFormData({ ...formData, variants: e.target.value })} />
+              <Label>Varian</Label>
+              {formData.variants.map((variant, index) => (
+                <div key={index} className="flex gap-2">
+                  <Input
+                    placeholder={`Varian ${index + 1}`}
+                    value={variant}
+                    onChange={(e) => {
+                      const newVariants = [...formData.variants];
+                      newVariants[index] = e.target.value;
+                      setFormData({ ...formData, variants: newVariants });
+                    }}
+                  />
+                  {formData.variants.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        const newVariants = formData.variants.filter((_, i) => i !== index);
+                        setFormData({ ...formData, variants: newVariants });
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFormData({ ...formData, variants: [...formData.variants, ""] })}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Tambah Varian
+              </Button>
             </div>
             <Button type="submit" className="w-full">Update</Button>
           </form>

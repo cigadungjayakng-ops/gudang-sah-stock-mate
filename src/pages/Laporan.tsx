@@ -39,7 +39,6 @@ function LaporanContent() {
   // Filters for Laporan Stok Produk
   const [productFilter, setProductFilter] = useState("");
   const [variantFilter, setVariantFilter] = useState("");
-  const [userFilter, setUserFilter] = useState("");
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
     from: new Date(new Date().setDate(new Date().getDate() - 30)),
     to: new Date(),
@@ -52,16 +51,13 @@ function LaporanContent() {
 
   useEffect(() => {
     fetchProducts();
-    if (userRole === "superadmin") {
-      fetchUsers();
-    }
   }, [user, userRole]);
 
   useEffect(() => {
     if (activeTab === "stok-produk") fetchStockPreview();
     if (activeTab === "stok-masuk") fetchStockInPreview();
     if (activeTab === "stok-keluar") fetchStockOutPreview();
-  }, [activeTab, productFilter, variantFilter, userFilter, dateRange]);
+  }, [activeTab, productFilter, variantFilter, dateRange]);
 
   const fetchProducts = async () => {
     if (!user) return;
@@ -72,17 +68,12 @@ function LaporanContent() {
     setProducts(data || []);
   };
 
-  const fetchUsers = async () => {
-    const { data } = await supabase.from("profiles").select("id, name");
-    setUsers(data || []);
-  };
-
   const fetchStockPreview = async () => {
     if (!user) return;
     
     let stockInQuery = supabase
       .from("stock_in")
-      .select("product_id, variant, qty, products(name, user_id)")
+      .select("product_id, variant, qty, products(name, user_id), profiles!stock_in_user_id_fkey(name)")
       .gte("created_at", dateRange.from.toISOString())
       .lte("created_at", dateRange.to.toISOString());
 
@@ -95,8 +86,6 @@ function LaporanContent() {
     if (userRole === "user") {
       stockInQuery = stockInQuery.eq("user_id", user.id);
       stockOutQuery = stockOutQuery.eq("user_id", user.id);
-    } else if (userFilter) {
-      stockInQuery = stockInQuery.eq("products.user_id", userFilter);
     }
 
     if (productFilter) {
@@ -118,6 +107,7 @@ function LaporanContent() {
         variant: item.variant,
         stock_in: 0,
         stock_out: 0,
+        owner: userRole === "superadmin" ? item.profiles?.name : null,
       };
       stockMap.set(key, { ...current, stock_in: current.stock_in + item.qty });
     });
@@ -146,7 +136,7 @@ function LaporanContent() {
 
     let query = supabase
       .from("stock_in")
-      .select("*, products(name, user_id), jenis_stok_masuk(name)")
+      .select("*, products(name, user_id), jenis_stok_masuk(name), profiles!stock_in_user_id_fkey(name)")
       .gte("created_at", dateRange.from.toISOString())
       .lte("created_at", dateRange.to.toISOString())
       .order("created_at", { ascending: false })
@@ -154,8 +144,6 @@ function LaporanContent() {
 
     if (userRole === "user") {
       query = query.eq("user_id", user.id);
-    } else if (userFilter) {
-      query = query.eq("products.user_id", userFilter);
     }
 
     if (productFilter) {
@@ -173,7 +161,7 @@ function LaporanContent() {
 
     let query = supabase
       .from("stock_out")
-      .select("*, products(name, user_id), jenis_stok_keluar(name)")
+      .select("*, products(name, user_id), jenis_stok_keluar(name), profiles!stock_out_user_id_fkey(name)")
       .gte("created_at", dateRange.from.toISOString())
       .lte("created_at", dateRange.to.toISOString())
       .order("created_at", { ascending: false })
@@ -181,8 +169,6 @@ function LaporanContent() {
 
     if (userRole === "user") {
       query = query.eq("user_id", user.id);
-    } else if (userFilter) {
-      query = query.eq("products.user_id", userFilter);
     }
 
     if (productFilter) {
@@ -246,20 +232,6 @@ function LaporanContent() {
               </div>
             )}
 
-            {userRole === "superadmin" && (
-              <div className="space-y-2">
-                <Label>User</Label>
-                <Combobox
-                  options={users.map(u => ({ value: u.id, label: u.name }))}
-                  value={userFilter}
-                  onValueChange={setUserFilter}
-                  placeholder="Semua User"
-                  searchPlaceholder="Cari user..."
-                  emptyText="User tidak ditemukan"
-                />
-              </div>
-            )}
-
             <div className="space-y-2">
               <Label>Periode</Label>
               <Popover>
@@ -310,6 +282,7 @@ function LaporanContent() {
                   <TableRow>
                     <TableHead>Produk</TableHead>
                     <TableHead>Varian</TableHead>
+                    {userRole === "superadmin" && <TableHead>Pemilik</TableHead>}
                     <TableHead className="text-right">Masuk</TableHead>
                     <TableHead className="text-right">Keluar</TableHead>
                     <TableHead className="text-right">Stok</TableHead>
@@ -318,7 +291,7 @@ function LaporanContent() {
                 <TableBody>
                   {stockPreview.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      <TableCell colSpan={userRole === "superadmin" ? 6 : 5} className="text-center text-muted-foreground">
                         Tidak ada data
                       </TableCell>
                     </TableRow>
@@ -329,6 +302,7 @@ function LaporanContent() {
                         <TableCell>
                           {item.variant ? <Badge variant="secondary">{item.variant}</Badge> : "-"}
                         </TableCell>
+                        {userRole === "superadmin" && <TableCell className="text-sm text-muted-foreground">{item.owner || "-"}</TableCell>}
                         <TableCell className="text-right">{item.stock_in}</TableCell>
                         <TableCell className="text-right">{item.stock_out}</TableCell>
                         <TableCell className="text-right font-bold">{item.stock}</TableCell>
@@ -360,6 +334,7 @@ function LaporanContent() {
                     <TableHead>Tanggal</TableHead>
                     <TableHead>Produk</TableHead>
                     <TableHead>Varian</TableHead>
+                    {userRole === "superadmin" && <TableHead>Pemilik</TableHead>}
                     <TableHead>Jenis</TableHead>
                     <TableHead className="text-right">Qty</TableHead>
                   </TableRow>
@@ -367,7 +342,7 @@ function LaporanContent() {
                 <TableBody>
                   {stockInPreview.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      <TableCell colSpan={userRole === "superadmin" ? 6 : 5} className="text-center text-muted-foreground">
                         Tidak ada data
                       </TableCell>
                     </TableRow>
@@ -379,6 +354,7 @@ function LaporanContent() {
                         <TableCell>
                           {item.variant ? <Badge variant="secondary">{item.variant}</Badge> : "-"}
                         </TableCell>
+                        {userRole === "superadmin" && <TableCell className="text-sm text-muted-foreground">{item.profiles?.name || "-"}</TableCell>}
                         <TableCell>{item.jenis_stok_masuk?.name}</TableCell>
                         <TableCell className="text-right font-medium">{item.qty}</TableCell>
                       </TableRow>
@@ -409,6 +385,7 @@ function LaporanContent() {
                     <TableHead>Tanggal</TableHead>
                     <TableHead>Produk</TableHead>
                     <TableHead>Varian</TableHead>
+                    {userRole === "superadmin" && <TableHead>Pemilik</TableHead>}
                     <TableHead>Jenis</TableHead>
                     <TableHead className="text-right">Qty</TableHead>
                   </TableRow>
@@ -416,7 +393,7 @@ function LaporanContent() {
                 <TableBody>
                   {stockOutPreview.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      <TableCell colSpan={userRole === "superadmin" ? 6 : 5} className="text-center text-muted-foreground">
                         Tidak ada data
                       </TableCell>
                     </TableRow>
@@ -428,6 +405,7 @@ function LaporanContent() {
                         <TableCell>
                           {item.variant ? <Badge variant="secondary">{item.variant}</Badge> : "-"}
                         </TableCell>
+                        {userRole === "superadmin" && <TableCell className="text-sm text-muted-foreground">{item.profiles?.name || "-"}</TableCell>}
                         <TableCell>{item.jenis_stok_keluar?.name}</TableCell>
                         <TableCell className="text-right font-medium">{item.qty}</TableCell>
                       </TableRow>
