@@ -12,9 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Plus, AlertTriangle, Eye } from "lucide-react";
+import { Plus, AlertTriangle, Eye, Search } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 
 interface StockInFormData {
   product_id: string;
@@ -36,6 +37,12 @@ function StokMasukContent() {
   const [cabang, setCabang] = useState<any[]>([]);
   const [stockInData, setStockInData] = useState<any[]>([]);
   const [selectedJenis, setSelectedJenis] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterProduct, setFilterProduct] = useState("");
+  const [filterVariant, setFilterVariant] = useState("");
+  const [filterJenis, setFilterJenis] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [formData, setFormData] = useState<StockInFormData>({
     product_id: "",
     variant: "",
@@ -129,6 +136,31 @@ function StokMasukContent() {
   };
 
   const selectedProduct = products.find((p) => p.id === formData.product_id);
+
+  const filteredStockInData = stockInData.filter((item) => {
+    const matchesSearch =
+      item.products?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.variant?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesProduct = !filterProduct || item.product_id === filterProduct;
+    const matchesVariant = !filterVariant || item.variant === filterVariant;
+    const matchesJenis = !filterJenis || item.jenis_stok_masuk_id === filterJenis;
+
+    return matchesSearch && matchesProduct && matchesVariant && matchesJenis;
+  });
+
+  const totalPages = Math.ceil(filteredStockInData.length / itemsPerPage);
+  const paginatedData = filteredStockInData.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const uniqueVariants = Array.from(
+    new Set(
+      stockInData
+        .filter((item) => item.variant)
+        .map((item) => item.variant)
+    )
+  );
 
   return (
     <div className="space-y-6">
@@ -305,6 +337,113 @@ function StokMasukContent() {
         )}
       </div>
 
+      <div className="flex flex-col gap-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Cari produk atau varian..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="pl-10"
+          />
+        </div>
+
+        <div className="flex gap-4 flex-wrap items-end">
+          <div className="flex-1 min-w-[200px] space-y-2">
+            <Label>Filter Produk</Label>
+            <Select
+              value={filterProduct}
+              onValueChange={(value) => {
+                setFilterProduct(value);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Semua Produk" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value=" ">Semua Produk</SelectItem>
+                {products.map((product) => (
+                  <SelectItem key={product.id} value={product.id}>
+                    {product.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex-1 min-w-[200px] space-y-2">
+            <Label>Filter Varian</Label>
+            <Select
+              value={filterVariant}
+              onValueChange={(value) => {
+                setFilterVariant(value);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Semua Varian" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value=" ">Semua Varian</SelectItem>
+                {uniqueVariants.map((variant) => (
+                  <SelectItem key={variant} value={variant}>
+                    {variant}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex-1 min-w-[200px] space-y-2">
+            <Label>Filter Jenis</Label>
+            <Select
+              value={filterJenis}
+              onValueChange={(value) => {
+                setFilterJenis(value);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Semua Jenis" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value=" ">Semua Jenis</SelectItem>
+                {jenisStokMasuk.map((jenis) => (
+                  <SelectItem key={jenis.id} value={jenis.id}>
+                    {jenis.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Label>Per halaman:</Label>
+            <Select
+              value={itemsPerPage.toString()}
+              onValueChange={(value) => {
+                setItemsPerPage(Number(value));
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
       <Card className="shadow-sm">
         <Table>
           <TableHeader>
@@ -318,14 +457,14 @@ function StokMasukContent() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {stockInData.length === 0 ? (
+            {paginatedData.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center">
-                  Belum ada data stok masuk
+                  {stockInData.length === 0 ? "Belum ada data stok masuk" : "Tidak ada data yang cocok"}
                 </TableCell>
               </TableRow>
             ) : (
-              stockInData.map((item) => (
+              paginatedData.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell>{new Date(item.created_at).toLocaleDateString("id-ID")}</TableCell>
                   <TableCell>{item.products?.name}</TableCell>
@@ -343,6 +482,36 @@ function StokMasukContent() {
           </TableBody>
         </Table>
       </Card>
+
+      {totalPages > 1 && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <PaginationItem key={page}>
+                <PaginationLink
+                  onClick={() => setCurrentPage(page)}
+                  isActive={currentPage === page}
+                  className="cursor-pointer"
+                >
+                  {page}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            <PaginationItem>
+              <PaginationNext
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
 
       <Dialog open={!!detailDialog} onOpenChange={() => setDetailDialog(null)}>
         <DialogContent className="max-w-2xl">
