@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Plus, AlertTriangle, Eye } from "lucide-react";
+import { Plus, AlertTriangle, Eye, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -35,6 +35,7 @@ function StokMasukContent() {
   const [jenisStokMasuk, setJenisStokMasuk] = useState<any[]>([]);
   const [cabang, setCabang] = useState<any[]>([]);
   const [stockInData, setStockInData] = useState<any[]>([]);
+  const [filteredData, setFilteredData] = useState<any[]>([]);
   const [selectedJenis, setSelectedJenis] = useState("");
   const [formData, setFormData] = useState<StockInFormData>({
     product_id: "",
@@ -47,12 +48,95 @@ function StokMasukContent() {
     no_surat_jalan: "",
     keterangan: "",
   });
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  // Filter state
+  const [filterProduct, setFilterProduct] = useState("");
+  const [filterVariant, setFilterVariant] = useState("");
+  const [filterJenis, setFilterJenis] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const { user, userRole } = useAuth();
 
   useEffect(() => {
     fetchData();
   }, [user]);
 
+  // Get variants for selected product
+  const [productVariants, setProductVariants] = useState<string[]>([]);
+  
+  useEffect(() => {
+    if (filterProduct && filterProduct !== "all") {
+      // Cari produk yang dipilih
+      const selectedProduct = products.find(p => p.id === filterProduct);
+      
+      // Jika produk memiliki varian yang sudah didefinisikan, gunakan itu
+      if (selectedProduct && selectedProduct.variants && selectedProduct.variants.length > 0) {
+        setProductVariants(selectedProduct.variants);
+      } else {
+        // Jika tidak, ambil dari data stok yang ada
+        const variants = stockInData
+          .filter(item => item.product_id === filterProduct && item.variant)
+          .map(item => item.variant)
+          .filter((variant, index, self) => variant && self.indexOf(variant) === index);
+        
+        setProductVariants(variants);
+      }
+      
+      // Reset variant filter when changing product
+      setFilterVariant("all");
+    } else {
+      setProductVariants([]);
+      setFilterVariant("all");
+    }
+  }, [filterProduct, stockInData, products]);
+
+  // Apply filters and search
+  useEffect(() => {
+    let result = [...stockInData];
+    
+    // Apply product filter
+    if (filterProduct && filterProduct !== "all") {
+      result = result.filter(item => item.product_id === filterProduct);
+    }
+    
+    // Apply variant filter
+    if (filterVariant && filterVariant !== "all") {
+      result = result.filter(item => item.variant === filterVariant);
+    }
+    
+    // Apply jenis filter
+    if (filterJenis && filterJenis !== "all") {
+      result = result.filter(item => item.jenis_stok_masuk_id === filterJenis);
+    }
+    
+    // Apply search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(item => 
+        (item.products?.name?.toLowerCase().includes(query)) || 
+        (item.variant?.toLowerCase().includes(query)) ||
+        (item.jenis_stok_masuk?.name?.toLowerCase().includes(query)) ||
+        (item.plat_nomor?.toLowerCase().includes(query)) ||
+        (item.supir?.toLowerCase().includes(query))
+      );
+    }
+    
+    setFilteredData(result);
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [stockInData, filterProduct, filterVariant, filterJenis, searchQuery]);
+
+  // Get current items for pagination
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+  // Change page
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+  
+  // Get unique variants for filter
+  const uniqueVariants = Array.from(new Set(stockInData.map(item => item.variant).filter(Boolean)));
   const fetchData = async () => {
     if (!user) return;
 
@@ -75,7 +159,10 @@ function StokMasukContent() {
     if (productsRes.data) setProducts(productsRes.data);
     if (jenisRes.data) setJenisStokMasuk(jenisRes.data);
     if (cabangRes.data) setCabang(cabangRes.data);
-    if (stockInRes.data) setStockInData(stockInRes.data);
+    if (stockInRes.data) {
+      setStockInData(stockInRes.data);
+      setFilteredData(stockInRes.data);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -187,15 +274,14 @@ function StokMasukContent() {
                       onValueChange={(value) => setFormData({ ...formData, variant: value })}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Pilih varian" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {selectedProduct.variants.map((variant: string, idx: number) => (
-                          <SelectItem key={idx} value={variant}>
-                            {variant}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
+                  <SelectValue placeholder="Pilih varian" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_placeholder" disabled>Pilih Varian</SelectItem>
+                  {selectedProduct.variants.map((variant: string, index: number) => (
+                    <SelectItem key={`variant-${index}`} value={variant}>{variant}</SelectItem>
+                  ))}
+                </SelectContent>
                     </Select>
                   </div>
                 )}
@@ -305,6 +391,78 @@ function StokMasukContent() {
         )}
       </div>
 
+      {/* Filter and Search Section */}
+      <Card className="p-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <div>
+            <Label htmlFor="search">Cari</Label>
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="search"
+                placeholder="Cari produk, varian..."
+                className="pl-8"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <div>
+            <Label htmlFor="filterProduct">Filter Produk</Label>
+            <Select value={filterProduct} onValueChange={setFilterProduct}>
+              <SelectTrigger>
+                <SelectValue placeholder="Semua Produk" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Produk</SelectItem>
+                {products.map((product) => (
+                  <SelectItem key={product.id} value={product.id}>
+                    {product.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {productVariants.length > 0 && (
+            <div>
+              <Label htmlFor="filterVariant">Filter Varian</Label>
+              <Select value={filterVariant} onValueChange={setFilterVariant}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Semua Varian" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Varian</SelectItem>
+                  {productVariants.map((variant, index) => (
+                    <SelectItem key={`variant-${index}`} value={variant || `variant-${index}`}>
+                      {variant || "-"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          
+          <div>
+            <Label htmlFor="filterJenis">Filter Jenis</Label>
+            <Select value={filterJenis} onValueChange={setFilterJenis}>
+              <SelectTrigger>
+                <SelectValue placeholder="Semua Jenis" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Jenis</SelectItem>
+                {jenisStokMasuk.map((jenis) => (
+                  <SelectItem key={jenis.id} value={jenis.id}>
+                    {jenis.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </Card>
+
       <Card className="shadow-sm">
         <Table>
           <TableHeader>
@@ -318,14 +476,14 @@ function StokMasukContent() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {stockInData.length === 0 ? (
+            {currentItems.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center">
                   Belum ada data stok masuk
                 </TableCell>
               </TableRow>
             ) : (
-              stockInData.map((item) => (
+              currentItems.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell>{new Date(item.created_at).toLocaleDateString("id-ID")}</TableCell>
                   <TableCell>{item.products?.name}</TableCell>
@@ -342,8 +500,76 @@ function StokMasukContent() {
             )}
           </TableBody>
         </Table>
+        
+        {/* Pagination */}
+        {filteredData.length > 0 && (
+          <div className="flex items-center justify-between px-4 py-4 border-t">
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-muted-foreground">
+                Menampilkan {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredData.length)} dari {filteredData.length} data
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Baris per halaman:</span>
+                <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+                  setItemsPerPage(Number(value));
+                  setCurrentPage(1); // Reset to first page when changing items per page
+                }}>
+                  <SelectTrigger className="h-8 w-[70px]">
+                    <SelectValue placeholder="10" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5</SelectItem>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => paginate(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                // Show pages around current page
+                let pageNum = i + 1;
+                if (totalPages > 5) {
+                  if (currentPage > 3) {
+                    pageNum = currentPage - 3 + i;
+                  }
+                  if (currentPage > totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  }
+                }
+                return (
+                  <Button
+                    key={i}
+                    variant={currentPage === pageNum ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => paginate(pageNum)}
+                    className="w-8"
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => paginate(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
-
       <Dialog open={!!detailDialog} onOpenChange={() => setDetailDialog(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>

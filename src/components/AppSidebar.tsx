@@ -9,7 +9,8 @@ import {
   FolderInput,
   FolderOutput,
   LogOut,
-  GitBranch
+  GitBranch,
+  User
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -92,10 +93,8 @@ export function AppSidebar() {
         {/* User Info */}
         <div className="border-b border-sidebar-border p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sidebar-accent">
-              <span className="text-sm font-medium text-sidebar-accent-foreground">
-                {profileName.charAt(0).toUpperCase()}
-              </span>
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary via-secondary to-accent">
+              <User className="h-5 w-5 text-white" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-foreground truncate">{profileName}</p>
