@@ -4,7 +4,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { DashboardLayout } from "@/components/layouts/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Download, Package } from "lucide-react";
+import { FileText, Download, Package, RotateCcw } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
@@ -18,8 +18,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import "jspdf-autotable";
 import { useToast } from "@/hooks/use-toast";
+
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 
 interface Product {
   id: string;
@@ -188,8 +194,30 @@ function LaporanContent() {
   const selectedProduct = products.find(p => p.id === productFilter);
   const hasVariants = selectedProduct?.variants && selectedProduct.variants.length > 0;
 
+  const resetFilters = () => {
+    setProductFilter("");
+    setVariantFilter("");
+    setDateRange({
+      from: new Date(new Date().setDate(new Date().getDate() - 30)),
+      to: new Date(),
+    });
+  };
+
+  useEffect(() => {
+    setVariantFilter("");
+  }, [productFilter]);
+
   const downloadStockPDF = async () => {
     try {
+      if (stockPreview.length === 0) {
+        toast({
+          title: "Tidak ada data",
+          description: "Tidak ada data untuk diunduh. Silakan sesuaikan filter.",
+          variant: "destructive"
+        });
+        return;
+      }
+
       toast({ title: "Mengunduh PDF...", description: "Mohon tunggu sebentar" });
 
       let stockInQuery = supabase
@@ -267,7 +295,7 @@ function LaporanContent() {
           : [item.product_name, item.variant || "-", item.stock_in, item.stock_out, item.stock]
       );
 
-      autoTable(doc, {
+      doc.autoTable({
         head: headers,
         body: body,
         startY: 40,
@@ -285,6 +313,15 @@ function LaporanContent() {
 
   const downloadStockInPDF = async () => {
     try {
+      if (stockInPreview.length === 0) {
+        toast({
+          title: "Tidak ada data",
+          description: "Tidak ada data untuk diunduh. Silakan sesuaikan filter.",
+          variant: "destructive"
+        });
+        return;
+      }
+
       toast({ title: "Mengunduh PDF...", description: "Mohon tunggu sebentar" });
 
       let query = supabase
@@ -337,7 +374,7 @@ function LaporanContent() {
             ]
       );
 
-      autoTable(doc, {
+      doc.autoTable({
         head: headers,
         body: body,
         startY: 40,
@@ -355,6 +392,15 @@ function LaporanContent() {
 
   const downloadStockOutPDF = async () => {
     try {
+      if (stockOutPreview.length === 0) {
+        toast({
+          title: "Tidak ada data",
+          description: "Tidak ada data untuk diunduh. Silakan sesuaikan filter.",
+          variant: "destructive"
+        });
+        return;
+      }
+
       toast({ title: "Mengunduh PDF...", description: "Mohon tunggu sebentar" });
 
       let query = supabase
@@ -407,7 +453,7 @@ function LaporanContent() {
             ]
       );
 
-      autoTable(doc, {
+      doc.autoTable({
         head: headers,
         body: body,
         startY: 40,
@@ -439,6 +485,13 @@ function LaporanContent() {
 
         {/* Filters */}
         <Card className="mt-4 p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-sm font-medium">Filter Laporan</h3>
+            <Button variant="ghost" size="sm" onClick={resetFilters}>
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Reset Filter
+            </Button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label>Produk</Label>
