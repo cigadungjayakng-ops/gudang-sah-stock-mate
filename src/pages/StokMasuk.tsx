@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Plus, AlertTriangle, Eye, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, AlertTriangle, Eye, Search, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -51,6 +51,7 @@ function StokMasukContent() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
   // Filter state
   const [filterProduct, setFilterProduct] = useState("");
   const [filterVariant, setFilterVariant] = useState("");
@@ -59,8 +60,12 @@ function StokMasukContent() {
   const { user, userRole } = useAuth();
 
   useEffect(() => {
-    fetchData();
+    fetchInitialData();
   }, [user]);
+
+  useEffect(() => {
+    fetchStockInData();
+  }, [user, currentPage, itemsPerPage, filterProduct, filterVariant, filterJenis, searchQuery]);
 
   // Get variants for selected product
   const [productVariants, setProductVariants] = useState<string[]>([]);
@@ -91,77 +96,69 @@ function StokMasukContent() {
     }
   }, [filterProduct, stockInData, products]);
 
-  // Apply filters and search
-  useEffect(() => {
-    let result = [...stockInData];
-    
-    // Apply product filter
-    if (filterProduct && filterProduct !== "all") {
-      result = result.filter(item => item.product_id === filterProduct);
-    }
-    
-    // Apply variant filter
-    if (filterVariant && filterVariant !== "all") {
-      result = result.filter(item => item.variant === filterVariant);
-    }
-    
-    // Apply jenis filter
-    if (filterJenis && filterJenis !== "all") {
-      result = result.filter(item => item.jenis_stok_masuk_id === filterJenis);
-    }
-    
-    // Apply search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(item => 
-        (item.products?.name?.toLowerCase().includes(query)) || 
-        (item.variant?.toLowerCase().includes(query)) ||
-        (item.jenis_stok_masuk?.name?.toLowerCase().includes(query)) ||
-        (item.plat_nomor?.toLowerCase().includes(query)) ||
-        (item.supir?.toLowerCase().includes(query))
-      );
-    }
-    
-    setFilteredData(result);
-    setCurrentPage(1); // Reset to first page when filters change
-  }, [stockInData, filterProduct, filterVariant, filterJenis, searchQuery]);
-
-  // Get current items for pagination
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-
-  // Change page
-  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
   
-  // Get unique variants for filter
-  const uniqueVariants = Array.from(new Set(stockInData.map(item => item.variant).filter(Boolean)));
-  const fetchData = async () => {
+  const fetchInitialData = async () => {
     if (!user) return;
 
-    let stockInQuery = supabase
-      .from("stock_in")
-      .select("*, products(name), jenis_stok_masuk(name), cabang(name)")
-      .order("created_at", { ascending: false });
-
-    if (userRole === "user") {
-      stockInQuery = stockInQuery.eq("user_id", user.id);
-    }
-
-    const [productsRes, jenisRes, cabangRes, stockInRes] = await Promise.all([
+    const [productsRes, jenisRes, cabangRes] = await Promise.all([
       supabase.from("products").select("*").eq("user_id", user.id),
       supabase.from("jenis_stok_masuk").select("*"),
       supabase.from("cabang").select("*"),
-      stockInQuery,
     ]);
 
     if (productsRes.data) setProducts(productsRes.data);
     if (jenisRes.data) setJenisStokMasuk(jenisRes.data);
     if (cabangRes.data) setCabang(cabangRes.data);
-    if (stockInRes.data) {
-      setStockInData(stockInRes.data);
-      setFilteredData(stockInRes.data);
+  };
+
+  const fetchStockInData = async () => {
+    if (!user) return;
+
+    const from = (currentPage - 1) * itemsPerPage;
+    const to = from + itemsPerPage - 1;
+
+    let query = supabase
+      .from("stock_in")
+      .select("*, products(name), jenis_stok_masuk(name), cabang(name)", { count: "exact" })
+      .order("created_at", { ascending: false });
+
+    if (userRole === "user") {
+      query = query.eq("user_id", user.id);
+    }
+
+    // Apply filters
+    if (filterProduct && filterProduct !== "all") {
+      query = query.eq("product_id", filterProduct);
+    }
+
+    if (filterVariant && filterVariant !== "all") {
+      query = query.eq("variant", filterVariant);
+    }
+
+    if (filterJenis && filterJenis !== "all") {
+      query = query.eq("jenis_stok_masuk_id", filterJenis);
+    }
+
+    if (searchQuery) {
+      // For global search, we need to use or filter
+      query = query.or(`plat_nomor.ilike.%${searchQuery}%,supir.ilike.%${searchQuery}%`);
+    }
+
+    query = query.range(from, to);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      setStockInData(data || []);
+      setFilteredData(data || []);
+      setTotalCount(count || 0);
     }
   };
 
@@ -206,7 +203,8 @@ function StokMasukContent() {
         keterangan: "",
       });
       setSelectedJenis("");
-      fetchData();
+      fetchInitialData();
+      fetchStockInData();
     }
   };
 
@@ -400,11 +398,27 @@ function StokMasukContent() {
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 id="search"
-                placeholder="Cari produk, varian..."
-                className="pl-8"
+                placeholder="Cari plat nomor, supir..."
+                className="pl-8 pr-8"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
               />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setCurrentPage(1);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
           
@@ -476,14 +490,14 @@ function StokMasukContent() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {currentItems.length === 0 ? (
+            {filteredData.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center">
                   Belum ada data stok masuk
                 </TableCell>
               </TableRow>
             ) : (
-              currentItems.map((item) => (
+              filteredData.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell>{new Date(item.created_at).toLocaleDateString("id-ID")}</TableCell>
                   <TableCell>{item.products?.name}</TableCell>
@@ -502,23 +516,22 @@ function StokMasukContent() {
         </Table>
         
         {/* Pagination */}
-        {filteredData.length > 0 && (
+        {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-4 border-t">
             <div className="flex items-center gap-4">
               <div className="text-sm text-muted-foreground">
-                Menampilkan {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredData.length)} dari {filteredData.length} data
+                Menampilkan {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, totalCount)} dari {totalCount} data
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Baris per halaman:</span>
                 <Select value={itemsPerPage.toString()} onValueChange={(value) => {
                   setItemsPerPage(Number(value));
-                  setCurrentPage(1); // Reset to first page when changing items per page
+                  setCurrentPage(1);
                 }}>
                   <SelectTrigger className="h-8 w-[70px]">
                     <SelectValue placeholder="10" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="5">5</SelectItem>
                     <SelectItem value="10">10</SelectItem>
                     <SelectItem value="25">25</SelectItem>
                     <SelectItem value="50">50</SelectItem>
@@ -530,38 +543,18 @@ function StokMasukContent() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => paginate(currentPage - 1)}
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                // Show pages around current page
-                let pageNum = i + 1;
-                if (totalPages > 5) {
-                  if (currentPage > 3) {
-                    pageNum = currentPage - 3 + i;
-                  }
-                  if (currentPage > totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  }
-                }
-                return (
-                  <Button
-                    key={i}
-                    variant={currentPage === pageNum ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => paginate(pageNum)}
-                    className="w-8"
-                  >
-                    {pageNum}
-                  </Button>
-                );
-              })}
+              <span className="text-sm font-medium">
+                Halaman {currentPage} dari {totalPages}
+              </span>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => paginate(currentPage + 1)}
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
               >
                 <ChevronRight className="h-4 w-4" />

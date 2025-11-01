@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { Plus, History, Edit, Trash2, Package2, X } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { useProductStock } from "@/hooks/useProductStock";
+import { useProductStockOptimized } from "@/hooks/useProductStockOptimized";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 
@@ -37,19 +37,35 @@ function ProdukContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
   const { user, userRole } = useAuth();
 
   useEffect(() => {
     fetchProducts();
-  }, [user]);
+  }, [user, currentPage, itemsPerPage, searchQuery]);
 
   const fetchProducts = async () => {
     if (!user) return;
+    setLoading(true);
 
-    const { data, error } = await supabase
+    // Server-side pagination with global search
+    const from = (currentPage - 1) * itemsPerPage;
+    const to = from + itemsPerPage - 1;
+
+    let query = supabase
       .from("products")
-      .select("*")
+      .select("*", { count: "exact" })
       .order("created_at", { ascending: false });
+
+    // Apply search filter
+    if (searchQuery) {
+      query = query.ilike("name", `%${searchQuery}%`);
+    }
+
+    // Apply pagination
+    query = query.range(from, to);
+
+    const { data, error, count } = await query;
 
     if (error) {
       toast({
@@ -57,10 +73,13 @@ function ProdukContent() {
         description: error.message,
         variant: "destructive",
       });
-      setProducts(data || []);
+      setProducts([]);
+      setTotalCount(0);
       setLoading(false);
       return;
     }
+
+    setTotalCount(count || 0);
 
     // For superadmin, fetch user names separately
     if (userRole === "superadmin" && data && data.length > 0) {
@@ -169,16 +188,7 @@ function ProdukContent() {
   };
 
   const canEdit = userRole === "user";
-
-  const filteredProducts = products.filter((product) =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-  const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   return (
     <div className="space-y-6">
@@ -257,7 +267,7 @@ function ProdukContent() {
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="flex-1">
+        <div className="flex-1 relative">
           <Input
             placeholder="Cari produk..."
             value={searchQuery}
@@ -266,6 +276,19 @@ function ProdukContent() {
               setCurrentPage(1);
             }}
           />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+              onClick={() => {
+                setSearchQuery("");
+                setCurrentPage(1);
+              }}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Label>Baris per halaman:</Label>
@@ -303,16 +326,16 @@ function ProdukContent() {
                   Memuat data...
                 </TableCell>
               </TableRow>
-            ) : paginatedProducts.length === 0 ? (
+            ) : products.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-center">
                   {searchQuery ? "Produk tidak ditemukan" : "Belum ada produk"}
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedProducts.flatMap((product) => {
+              products.flatMap((product) => {
                 const ProductRows = () => {
-                  const { stockInfo } = useProductStock(product.id);
+                  const { stockInfo } = useProductStockOptimized(product.id);
                   const variantColors = ["bg-primary/20 text-primary border-primary", "bg-secondary/20 text-secondary border-secondary", "bg-accent/20 text-accent border-accent", "bg-chart-4/20 text-chart-4 border-chart-4", "bg-chart-2/20 text-chart-2 border-chart-2"];
 
                   if (product.variants && product.variants.length > 0) {
@@ -454,33 +477,32 @@ function ProdukContent() {
       </Card>
 
       {totalPages > 1 && (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
-            </PaginationItem>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <PaginationItem key={page}>
-                <PaginationLink
-                  onClick={() => setCurrentPage(page)}
-                  isActive={currentPage === page}
-                  className="cursor-pointer"
-                >
-                  {page}
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Menampilkan {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalCount)} dari {totalCount} produk
+          </p>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationLink isActive className="cursor-default">
+                  {currentPage}
                 </PaginationLink>
               </PaginationItem>
-            ))}
-            <PaginationItem>
-              <PaginationNext
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
       )}
 
       <Dialog open={!!editDialog} onOpenChange={() => { setEditDialog(null); setFormData({ name: "", variants: [""] }); }}>

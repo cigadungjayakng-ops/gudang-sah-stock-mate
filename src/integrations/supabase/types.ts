@@ -294,6 +294,10 @@ export type Database = {
       }
     }
     Functions: {
+      can_access_product_stock: {
+        Args: { p_product_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
