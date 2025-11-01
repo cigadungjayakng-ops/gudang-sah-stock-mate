@@ -282,7 +282,16 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      product_stock_summary: {
+        Row: {
+          current_stock: number | null
+          product_id: string | null
+          total_in: number | null
+          total_out: number | null
+          variant: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
