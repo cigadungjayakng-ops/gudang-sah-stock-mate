@@ -129,6 +129,7 @@ export type Database = {
           id: string
           jenis_stok_masuk_id: string
           keterangan: string | null
+          mandor: string | null
           no_surat_jalan: string | null
           plat_nomor: string | null
           product_id: string
@@ -143,6 +144,7 @@ export type Database = {
           id?: string
           jenis_stok_masuk_id: string
           keterangan?: string | null
+          mandor?: string | null
           no_surat_jalan?: string | null
           plat_nomor?: string | null
           product_id: string
@@ -157,6 +159,7 @@ export type Database = {
           id?: string
           jenis_stok_masuk_id?: string
           keterangan?: string | null
+          mandor?: string | null
           no_surat_jalan?: string | null
           plat_nomor?: string | null
           product_id?: string
@@ -196,6 +199,7 @@ export type Database = {
           id: string
           jenis_stok_keluar_id: string
           keterangan: string | null
+          mandor: string | null
           no_surat_jalan: string | null
           plat_nomor: string | null
           product_id: string
@@ -211,6 +215,7 @@ export type Database = {
           id?: string
           jenis_stok_keluar_id: string
           keterangan?: string | null
+          mandor?: string | null
           no_surat_jalan?: string | null
           plat_nomor?: string | null
           product_id: string
@@ -226,6 +231,7 @@ export type Database = {
           id?: string
           jenis_stok_keluar_id?: string
           keterangan?: string | null
+          mandor?: string | null
           no_surat_jalan?: string | null
           plat_nomor?: string | null
           product_id?: string

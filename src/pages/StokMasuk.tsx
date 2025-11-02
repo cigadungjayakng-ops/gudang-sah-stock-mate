@@ -12,9 +12,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Plus, AlertTriangle, Eye, Search, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Plus, AlertTriangle, Eye, Search, ChevronLeft, ChevronRight, X, CalendarIcon } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format, startOfDay, endOfDay } from "date-fns";
+import { cn } from "@/lib/utils";
+import { Combobox } from "@/components/ui/combobox";
 
 interface StockInFormData {
   product_id: string;
@@ -24,6 +29,7 @@ interface StockInFormData {
   qty: string;
   plat_nomor: string;
   supir: string;
+  mandor: string;
   no_surat_jalan: string;
   keterangan: string;
 }
@@ -45,6 +51,7 @@ function StokMasukContent() {
     qty: "",
     plat_nomor: "",
     supir: "",
+    mandor: "",
     no_surat_jalan: "",
     keterangan: "",
   });
@@ -57,6 +64,9 @@ function StokMasukContent() {
   const [filterVariant, setFilterVariant] = useState("");
   const [filterJenis, setFilterJenis] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  // Date range filter
+  const [dateFrom, setDateFrom] = useState<Date>(startOfDay(new Date()));
+  const [dateTo, setDateTo] = useState<Date>(endOfDay(new Date()));
   const { user, userRole } = useAuth();
 
   useEffect(() => {
@@ -65,7 +75,7 @@ function StokMasukContent() {
 
   useEffect(() => {
     fetchStockInData();
-  }, [user, currentPage, itemsPerPage, filterProduct, filterVariant, filterJenis, searchQuery]);
+  }, [user, currentPage, itemsPerPage, filterProduct, filterVariant, filterJenis, searchQuery, dateFrom, dateTo]);
 
   // Get variants for selected product
   const [productVariants, setProductVariants] = useState<string[]>([]);
@@ -142,7 +152,15 @@ function StokMasukContent() {
 
     if (searchQuery) {
       // For global search, we need to use or filter
-      query = query.or(`plat_nomor.ilike.%${searchQuery}%,supir.ilike.%${searchQuery}%`);
+      query = query.or(`plat_nomor.ilike.%${searchQuery}%,supir.ilike.%${searchQuery}%,mandor.ilike.%${searchQuery}%`);
+    }
+
+    // Apply date range filter
+    if (dateFrom) {
+      query = query.gte("created_at", dateFrom.toISOString());
+    }
+    if (dateTo) {
+      query = query.lte("created_at", dateTo.toISOString());
     }
 
     query = query.range(from, to);
@@ -175,6 +193,7 @@ function StokMasukContent() {
       qty: parseInt(formData.qty),
       plat_nomor: formData.plat_nomor || null,
       supir: formData.supir || null,
+      mandor: formData.mandor || null,
       no_surat_jalan: formData.no_surat_jalan || null,
       keterangan: formData.keterangan || null,
     });
@@ -199,6 +218,7 @@ function StokMasukContent() {
         qty: "",
         plat_nomor: "",
         supir: "",
+        mandor: "",
         no_surat_jalan: "",
         keterangan: "",
       });
@@ -246,22 +266,13 @@ function StokMasukContent() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="product">Produk</Label>
-                  <Select
+                  <Combobox
+                    options={products.map(p => ({ value: p.id, label: p.name }))}
                     value={formData.product_id}
                     onValueChange={(value) => setFormData({ ...formData, product_id: value })}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih produk" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {products.map((product) => (
-                        <SelectItem key={product.id} value={product.id}>
-                          {product.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder="Cari produk..."
+                    emptyText="Produk tidak ditemukan"
+                  />
                 </div>
 
                 {selectedProduct && selectedProduct.variants && selectedProduct.variants.length > 0 && (
@@ -358,6 +369,15 @@ function StokMasukContent() {
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="mandor">Mandor</Label>
+                  <Input
+                    id="mandor"
+                    value={formData.mandor}
+                    onChange={(e) => setFormData({ ...formData, mandor: e.target.value })}
+                  />
+                </div>
+
                 {selectedJenis === "PEMBELANJAAN (SUPPLIER)" && (
                   <div className="space-y-2">
                     <Label htmlFor="no_surat_jalan">No. Surat Jalan</Label>
@@ -391,14 +411,56 @@ function StokMasukContent() {
 
       {/* Filter and Search Section */}
       <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+          <div>
+            <Label>Tanggal Dari</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateFrom ? format(dateFrom, "PPP") : <span>Pilih tanggal</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dateFrom}
+                  onSelect={(date) => date && setDateFrom(startOfDay(date))}
+                  initialFocus
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div>
+            <Label>Tanggal Sampai</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateTo ? format(dateTo, "PPP") : <span>Pilih tanggal</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dateTo}
+                  onSelect={(date) => date && setDateTo(endOfDay(date))}
+                  initialFocus
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
           <div>
             <Label htmlFor="search">Cari</Label>
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 id="search"
-                placeholder="Cari plat nomor, supir..."
+                placeholder="Cari plat nomor, supir, mandor..."
                 className="pl-8 pr-8"
                 value={searchQuery}
                 onChange={(e) => {

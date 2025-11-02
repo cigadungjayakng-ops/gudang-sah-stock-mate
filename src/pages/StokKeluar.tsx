@@ -12,9 +12,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Plus, AlertTriangle, Eye, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, AlertTriangle, Eye, Search, ChevronLeft, ChevronRight, X, CalendarIcon } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format, startOfDay, endOfDay } from "date-fns";
+import { cn } from "@/lib/utils";
+import { Combobox } from "@/components/ui/combobox";
 
 interface StockOutFormData {
   product_id: string;
@@ -25,6 +30,7 @@ interface StockOutFormData {
   qty: string;
   plat_nomor: string;
   supir: string;
+  mandor: string;
   no_surat_jalan: string;
   keterangan: string;
 }
@@ -46,22 +52,31 @@ function StokKeluarContent() {
     qty: "",
     plat_nomor: "",
     supir: "",
+    mandor: "",
     no_surat_jalan: "",
     keterangan: "",
   });
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
   // Filter state
   const [filterProduct, setFilterProduct] = useState("");
   const [filterVariant, setFilterVariant] = useState("");
   const [filterJenis, setFilterJenis] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  // Date range filter
+  const [dateFrom, setDateFrom] = useState<Date>(startOfDay(new Date()));
+  const [dateTo, setDateTo] = useState<Date>(endOfDay(new Date()));
   const { user, userRole } = useAuth();
 
   useEffect(() => {
-    fetchData();
+    fetchInitialData();
   }, [user]);
+
+  useEffect(() => {
+    fetchStockOutData();
+  }, [user, currentPage, itemsPerPage, filterProduct, filterVariant, filterJenis, searchQuery, dateFrom, dateTo]);
 
   // Get variants for selected product
   const [productVariants, setProductVariants] = useState<string[]>([]);
@@ -92,78 +107,75 @@ function StokKeluarContent() {
     }
   }, [filterProduct, stockOutData, products]);
 
-  // Apply filters and search
-  useEffect(() => {
-    let result = [...stockOutData];
-    
-    // Apply product filter
-    if (filterProduct && filterProduct !== "all") {
-      result = result.filter(item => item.product_id === filterProduct);
-    }
-    
-    // Apply variant filter
-    if (filterVariant && filterVariant !== "all") {
-      result = result.filter(item => item.variant === filterVariant);
-    }
-    
-    // Apply jenis filter
-    if (filterJenis && filterJenis !== "all") {
-      result = result.filter(item => item.jenis_stok_keluar_id === filterJenis);
-    }
-    
-    // Apply search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(item => 
-        (item.products?.name?.toLowerCase().includes(query)) || 
-        (item.variant?.toLowerCase().includes(query)) ||
-        (item.jenis_stok_keluar?.name?.toLowerCase().includes(query)) ||
-        (item.plat_nomor?.toLowerCase().includes(query)) ||
-        (item.supir?.toLowerCase().includes(query))
-      );
-    }
-    
-    setFilteredData(result);
-    setCurrentPage(1); // Reset to first page when filters change
-  }, [stockOutData, filterProduct, filterVariant, filterJenis, searchQuery]);
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
-  // Get current items for pagination
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-
-  // Change page
-  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
-  
-  // Get unique variants for filter
-  const uniqueVariants = Array.from(new Set(stockOutData.map(item => item.variant).filter(Boolean)));
-
-  const fetchData = async () => {
+  const fetchInitialData = async () => {
     if (!user) return;
 
-    let stockOutQuery = supabase
-      .from("stock_out")
-      .select("*, products(name), jenis_stok_keluar(name), cabang(name)")
-      .order("created_at", { ascending: false });
-
-    if (userRole === "user") {
-      stockOutQuery = stockOutQuery.eq("user_id", user.id);
-    }
-
-    const [productsRes, jenisRes, cabangRes, stockOutRes] = await Promise.all([
+    const [productsRes, jenisRes, cabangRes] = await Promise.all([
       supabase.from("products").select("*").eq("user_id", user.id),
       supabase.from("jenis_stok_keluar").select("*"),
       supabase.from("cabang").select("*"),
-      stockOutQuery,
     ]);
 
     if (productsRes.data) setProducts(productsRes.data);
     if (jenisRes.data) setJenisStokKeluar(jenisRes.data);
     if (cabangRes.data) setCabang(cabangRes.data);
-    if (stockOutRes.data) {
-      setStockOutData(stockOutRes.data);
-      setFilteredData(stockOutRes.data);
+  };
+
+  const fetchStockOutData = async () => {
+    if (!user) return;
+
+    const from = (currentPage - 1) * itemsPerPage;
+    const to = from + itemsPerPage - 1;
+
+    let query = supabase
+      .from("stock_out")
+      .select("*, products(name), jenis_stok_keluar(name), cabang(name)", { count: "exact" })
+      .order("created_at", { ascending: false });
+
+    if (userRole === "user") {
+      query = query.eq("user_id", user.id);
+    }
+
+    // Apply filters
+    if (filterProduct && filterProduct !== "all") {
+      query = query.eq("product_id", filterProduct);
+    }
+
+    if (filterVariant && filterVariant !== "all") {
+      query = query.eq("variant", filterVariant);
+    }
+
+    if (filterJenis && filterJenis !== "all") {
+      query = query.eq("jenis_stok_keluar_id", filterJenis);
+    }
+
+    if (searchQuery) {
+      query = query.or(`plat_nomor.ilike.%${searchQuery}%,supir.ilike.%${searchQuery}%,mandor.ilike.%${searchQuery}%`);
+    }
+
+    // Apply date range filter
+    if (dateFrom) {
+      query = query.gte("created_at", dateFrom.toISOString());
+    }
+    if (dateTo) {
+      query = query.lte("created_at", dateTo.toISOString());
+    }
+
+    query = query.range(from, to);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      setStockOutData(data || []);
+      setTotalCount(count || 0);
     }
   };
 
@@ -181,6 +193,7 @@ function StokKeluarContent() {
       qty: parseInt(formData.qty),
       plat_nomor: formData.plat_nomor || null,
       supir: formData.supir || null,
+      mandor: formData.mandor || null,
       no_surat_jalan: formData.no_surat_jalan || null,
       keterangan: formData.keterangan || null,
     });
@@ -206,10 +219,12 @@ function StokKeluarContent() {
         qty: "",
         plat_nomor: "",
         supir: "",
+        mandor: "",
         no_surat_jalan: "",
         keterangan: "",
       });
-      fetchData();
+      fetchInitialData();
+      fetchStockOutData();
     }
   };
 
@@ -248,22 +263,13 @@ function StokKeluarContent() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="product">Produk</Label>
-                  <Select
+                  <Combobox
+                    options={products.map(p => ({ value: p.id, label: p.name }))}
                     value={formData.product_id}
                     onValueChange={(value) => setFormData({ ...formData, product_id: value })}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih produk" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {products.map((product) => (
-                        <SelectItem key={product.id} value={product.id}>
-                          {product.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder="Cari produk..."
+                    emptyText="Produk tidak ditemukan"
+                  />
                 </div>
 
                 {selectedProduct && selectedProduct.variants && selectedProduct.variants.length > 0 && (
@@ -380,6 +386,15 @@ function StokKeluarContent() {
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="mandor">Mandor</Label>
+                  <Input
+                    id="mandor"
+                    value={formData.mandor}
+                    onChange={(e) => setFormData({ ...formData, mandor: e.target.value })}
+                  />
+                </div>
+
                 {selectedJenis?.name === "Retur Supplier" && (
                   <div className="space-y-2">
                     <Label htmlFor="no_surat_jalan">No. Surat Jalan</Label>
@@ -413,18 +428,76 @@ function StokKeluarContent() {
 
       {/* Filter and Search Section */}
       <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+          <div>
+            <Label>Tanggal Dari</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateFrom ? format(dateFrom, "PPP") : <span>Pilih tanggal</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dateFrom}
+                  onSelect={(date) => date && setDateFrom(startOfDay(date))}
+                  initialFocus
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div>
+            <Label>Tanggal Sampai</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateTo ? format(dateTo, "PPP") : <span>Pilih tanggal</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dateTo}
+                  onSelect={(date) => date && setDateTo(endOfDay(date))}
+                  initialFocus
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
           <div>
             <Label htmlFor="search">Cari</Label>
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 id="search"
-                placeholder="Cari produk, varian..."
-                className="pl-8"
+                placeholder="Cari plat nomor, supir, mandor..."
+                className="pl-8 pr-8"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
               />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setCurrentPage(1);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
           
@@ -496,14 +569,14 @@ function StokKeluarContent() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {currentItems.length === 0 ? (
+            {stockOutData.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center">
                   Belum ada data stok keluar
                 </TableCell>
               </TableRow>
             ) : (
-              currentItems.map((item) => (
+              stockOutData.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell>{new Date(item.created_at).toLocaleDateString("id-ID")}</TableCell>
                   <TableCell>{item.products?.name}</TableCell>
@@ -522,68 +595,31 @@ function StokKeluarContent() {
         </Table>
         
         {/* Pagination */}
-        {filteredData.length > 0 && (
+        {totalCount > 0 && (
           <div className="flex items-center justify-between px-4 py-4 border-t">
-            <div className="flex items-center gap-4">
-              <div className="text-sm text-muted-foreground">
-                Menampilkan {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredData.length)} dari {filteredData.length} data
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Baris per halaman:</span>
-                <Select value={itemsPerPage.toString()} onValueChange={(value) => {
-                  setItemsPerPage(Number(value));
-                  setCurrentPage(1); // Reset to first page when changing items per page
-                }}>
-                  <SelectTrigger className="h-8 w-[70px]">
-                    <SelectValue placeholder="10" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="5">5</SelectItem>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="25">25</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="text-sm text-muted-foreground">
+              Total {totalCount} data | Halaman {currentPage} dari {totalPages}
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => paginate(currentPage - 1)}
+                onClick={() => setCurrentPage(currentPage - 1)}
                 disabled={currentPage === 1}
               >
                 <ChevronLeft className="h-4 w-4" />
+                Sebelumnya
               </Button>
-              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                // Show pages around current page
-                let pageNum = i + 1;
-                if (totalPages > 5) {
-                  if (currentPage > 3) {
-                    pageNum = currentPage - 3 + i;
-                  }
-                  if (currentPage > totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  }
-                }
-                return (
-                  <Button
-                    key={i}
-                    variant={currentPage === pageNum ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => paginate(pageNum)}
-                    className="w-8"
-                  >
-                    {pageNum}
-                  </Button>
-                );
-              })}
+              <div className="text-sm text-muted-foreground">
+                Halaman {currentPage}
+              </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => paginate(currentPage + 1)}
-                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage >= totalPages}
               >
+                Berikutnya
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
