@@ -182,7 +182,7 @@ function LaporanContent() {
   };
 
   const selectedProduct = products.find(p => p.id === productFilter);
-  const hasVariants = selectedProduct?.variants && selectedProduct.variants.length > 0;
+  const hasVariants = productFilter && selectedProduct?.variants && Array.isArray(selectedProduct.variants) && selectedProduct.variants.length > 0;
 
   return (
     <div className="space-y-6">
@@ -271,7 +271,7 @@ function LaporanContent() {
                 <CardTitle>Preview Laporan Stok Produk</CardTitle>
                 <CardDescription>Menampilkan 10 item pertama</CardDescription>
               </div>
-              <Button>
+              <Button onClick={() => alert("Fitur unduh PDF akan segera tersedia")}>
                 <Download className="mr-2 h-4 w-4" />
                 Unduh PDF
               </Button>
@@ -322,7 +322,7 @@ function LaporanContent() {
                 <CardTitle>Preview Riwayat Stok Masuk</CardTitle>
                 <CardDescription>Menampilkan 10 transaksi terakhir</CardDescription>
               </div>
-              <Button variant="secondary">
+              <Button variant="secondary" onClick={() => alert("Fitur unduh PDF akan segera tersedia")}>
                 <Download className="mr-2 h-4 w-4" />
                 Unduh PDF
               </Button>
@@ -373,7 +373,7 @@ function LaporanContent() {
                 <CardTitle>Preview Riwayat Stok Keluar</CardTitle>
                 <CardDescription>Menampilkan 10 transaksi terakhir</CardDescription>
               </div>
-              <Button variant="outline">
+              <Button variant="outline" onClick={() => alert("Fitur unduh PDF akan segera tersedia")}>
                 <Download className="mr-2 h-4 w-4" />
                 Unduh PDF
               </Button>

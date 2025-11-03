@@ -55,7 +55,7 @@ interface StockDetail {
 function PergerakanStokContent() {
   const { user, userRole } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState<string>("");
+  const [selectedProduct, setSelectedProduct] = useState<string>("all");
   const [selectedVariant, setSelectedVariant] = useState<string>("all");
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
     from: new Date(new Date().setHours(0, 0, 0, 0)),
@@ -70,8 +70,10 @@ function PergerakanStokContent() {
   }, [user]);
 
   useEffect(() => {
-    if (selectedProduct) {
+    if (selectedProduct && selectedProduct !== "all") {
       fetchMovements();
+    } else if (selectedProduct === "all") {
+      fetchAllMovements();
     }
   }, [selectedProduct, selectedVariant, dateRange]);
 
@@ -89,8 +91,106 @@ function PergerakanStokContent() {
     } else {
       setProducts(data || []);
       if (data && data.length > 0) {
-        setSelectedProduct(data[0].id);
+        setSelectedProduct("all");
       }
+    }
+  };
+
+  const fetchAllMovements = async () => {
+    if (!user) return;
+
+    setLoading(true);
+
+    try {
+      const movementsData: StockMovement[] = [];
+
+      for (const product of products) {
+        const productVariants = Array.isArray(product.variants) && product.variants.length > 0 
+          ? product.variants 
+          : [null];
+        
+        const variants = selectedVariant === "all"
+          ? productVariants
+          : [selectedVariant];
+
+        for (const variant of variants) {
+          const [stockInBefore, stockOutBefore] = await Promise.all([
+            supabase
+              .from("stock_in")
+              .select("qty, variant")
+              .eq("product_id", product.id)
+              .lt("created_at", dateRange.from.toISOString())
+              .then((res) => {
+                if (variant === null) {
+                  return res.data?.filter((item: any) => !item.variant);
+                }
+                return res.data?.filter((item: any) => item.variant === variant);
+              }),
+            supabase
+              .from("stock_out")
+              .select("qty, variant")
+              .eq("product_id", product.id)
+              .lt("created_at", dateRange.from.toISOString())
+              .then((res) => {
+                if (variant === null) {
+                  return res.data?.filter((item: any) => !item.variant);
+                }
+                return res.data?.filter((item: any) => item.variant === variant);
+              }),
+          ]);
+
+          const stok_awal = (stockInBefore?.reduce((sum, item) => sum + item.qty, 0) || 0) -
+                            (stockOutBefore?.reduce((sum, item) => sum + item.qty, 0) || 0);
+
+          const [stockInData, stockOutData] = await Promise.all([
+            supabase
+              .from("stock_in")
+              .select("*, products(name), jenis_stok_masuk(name), cabang(name)")
+              .eq("product_id", product.id)
+              .gte("created_at", dateRange.from.toISOString())
+              .lte("created_at", dateRange.to.toISOString())
+              .then((res) => {
+                if (variant === null) {
+                  return { data: res.data?.filter((item) => !item.variant) || [] };
+                }
+                return { data: res.data?.filter((item) => item.variant === variant) || [] };
+              }),
+            supabase
+              .from("stock_out")
+              .select("*, products(name), jenis_stok_keluar(name), cabang(name)")
+              .eq("product_id", product.id)
+              .gte("created_at", dateRange.from.toISOString())
+              .lte("created_at", dateRange.to.toISOString())
+              .then((res) => {
+                if (variant === null) {
+                  return { data: res.data?.filter((item) => !item.variant) || [] };
+                }
+                return { data: res.data?.filter((item) => item.variant === variant) || [] };
+              }),
+          ]);
+
+          const masuk = stockInData.data.reduce((sum, item) => sum + item.qty, 0);
+          const keluar = stockOutData.data.reduce((sum, item) => sum + item.qty, 0);
+
+          movementsData.push({
+            product_id: product.id,
+            product_name: product.name,
+            variant: variant,
+            stok_awal,
+            masuk,
+            keluar,
+            sisa_stok: stok_awal + masuk - keluar,
+            masuk_details: stockInData.data,
+            keluar_details: stockOutData.data,
+          });
+        }
+      }
+
+      setMovements(movementsData);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -197,7 +297,7 @@ function PergerakanStokContent() {
   };
 
   const selectedProductData = products.find((p) => p.id === selectedProduct);
-  const hasVariants = selectedProductData?.variants && selectedProductData.variants.length > 0;
+  const hasVariants = selectedProduct !== "all" && selectedProductData?.variants && selectedProductData.variants.length > 0;
 
   return (
     <div className="space-y-6">
@@ -211,7 +311,10 @@ function PergerakanStokContent() {
           <div className="space-y-2">
             <Label>Produk</Label>
             <Combobox
-              options={products.map((p) => ({ value: p.id, label: p.name }))}
+              options={[
+                { value: "all", label: "Semua Produk" },
+                ...products.map((p) => ({ value: p.id, label: p.name }))
+              ]}
               value={selectedProduct}
               onValueChange={setSelectedProduct}
               placeholder="Pilih produk"

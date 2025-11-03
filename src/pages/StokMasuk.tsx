@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Plus, AlertTriangle, Eye, Search, ChevronLeft, ChevronRight, X, CalendarIcon } from "lucide-react";
+import { Plus, AlertTriangle, Eye, Search, ChevronLeft, ChevronRight, X, CalendarIcon, List } from "lucide-react";
+import { BulkStockInForm } from "@/components/BulkStockInForm";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -36,6 +37,7 @@ interface StockInFormData {
 
 function StokMasukContent() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [detailDialog, setDetailDialog] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [jenisStokMasuk, setJenisStokMasuk] = useState<any[]>([]);
@@ -243,13 +245,38 @@ function StokMasukContent() {
           <p className="text-muted-foreground">Kelola data stok masuk gudang</p>
         </div>
         {userRole === "user" && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Tambah Stok Masuk
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <List className="mr-2 h-4 w-4" />
+                  Input Banyak Item
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Tambah Stok Masuk (Banyak Item)</DialogTitle>
+                </DialogHeader>
+                <BulkStockInForm
+                  products={products}
+                  jenisStokMasuk={jenisStokMasuk}
+                  cabang={cabang}
+                  userId={user?.id || ""}
+                  onSuccess={() => {
+                    setBulkDialogOpen(false);
+                    fetchStockInData();
+                  }}
+                  onCancel={() => setBulkDialogOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Tambah Stok Masuk
+                </Button>
+              </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Tambah Stok Masuk</DialogTitle>
@@ -405,7 +432,8 @@ function StokMasukContent() {
               </Button>
             </form>
           </DialogContent>
-          </Dialog>
+        </Dialog>
+          </div>
         )}
       </div>
 
