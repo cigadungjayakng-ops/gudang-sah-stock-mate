@@ -10,7 +10,8 @@ import {
   FolderOutput,
   LogOut,
   GitBranch,
-  User
+  User,
+  ClipboardList
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,6 +38,7 @@ const userMenuItems = [
   { title: "Stok Masuk", url: "/stok-masuk", icon: TrendingDown, color: "text-accent" },
   { title: "Stok Keluar", url: "/stok-keluar", icon: TrendingUp, color: "text-chart-4" },
   { title: "Pergerakan Stok", url: "/pergerakan-stok", icon: GitBranch, color: "text-chart-2" },
+  { title: "Opname Stok", url: "/opname-stok", icon: ClipboardList, color: "text-chart-3" },
   { title: "Laporan", url: "/laporan", icon: FileText, color: "text-destructive" },
 ];
 
@@ -46,6 +48,7 @@ const superadminMenuItems = [
   { title: "Stok Masuk", url: "/stok-masuk", icon: TrendingDown, color: "text-accent" },
   { title: "Stok Keluar", url: "/stok-keluar", icon: TrendingUp, color: "text-chart-4" },
   { title: "Pergerakan Stok", url: "/pergerakan-stok", icon: GitBranch, color: "text-chart-2" },
+  { title: "Opname Stok", url: "/opname-stok", icon: ClipboardList, color: "text-chart-3" },
   { title: "Laporan", url: "/laporan", icon: FileText, color: "text-destructive" },
 ];
 

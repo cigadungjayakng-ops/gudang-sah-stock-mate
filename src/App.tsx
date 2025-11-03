@@ -11,6 +11,7 @@ import ProductHistory from "./pages/ProductHistory";
 import StokMasuk from "./pages/StokMasuk";
 import StokKeluar from "./pages/StokKeluar";
 import PergerakanStok from "./pages/PergerakanStok";
+import OpnameStok from "./pages/OpnameStok";
 import Laporan from "./pages/Laporan";
 import AdminUsers from "./pages/admin/Users";
 import AdminCabang from "./pages/admin/Cabang";
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/stok-masuk" element={<StokMasuk />} />
             <Route path="/stok-keluar" element={<StokKeluar />} />
             <Route path="/pergerakan-stok" element={<PergerakanStok />} />
+            <Route path="/opname-stok" element={<OpnameStok />} />
             <Route path="/laporan" element={<Laporan />} />
             <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/admin/cabang" element={<AdminCabang />} />

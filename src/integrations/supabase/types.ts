@@ -192,6 +192,50 @@ export type Database = {
           },
         ]
       }
+      stock_opname: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          qty_after: number
+          qty_before: number
+          qty_difference: number
+          reason: string
+          user_id: string
+          variant: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          qty_after: number
+          qty_before: number
+          qty_difference: number
+          reason: string
+          user_id: string
+          variant?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          qty_after?: number
+          qty_before?: number
+          qty_difference?: number
+          reason?: string
+          user_id?: string
+          variant?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_opname_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_out: {
         Row: {
           cabang_id: string | null

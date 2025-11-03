@@ -103,8 +103,13 @@ function PergerakanStokContent() {
       const product = products.find((p) => p.id === selectedProduct);
       if (!product) return;
 
+      // Handle products without variants
+      const productVariants = Array.isArray(product.variants) && product.variants.length > 0 
+        ? product.variants 
+        : [null];
+      
       const variants = selectedVariant === "all"
-        ? product.variants || [null]
+        ? productVariants
         : [selectedVariant];
 
       const movementsData: StockMovement[] = [];
