@@ -17,6 +17,9 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { toast } from "@/hooks/use-toast";
 
 interface Product {
   id: string;
@@ -184,6 +187,84 @@ function LaporanContent() {
   const selectedProduct = products.find(p => p.id === productFilter);
   const hasVariants = productFilter && selectedProduct?.variants && Array.isArray(selectedProduct.variants) && selectedProduct.variants.length > 0;
 
+  const downloadStockPDF = () => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(16);
+    doc.text("Laporan Stok Produk", 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Periode: ${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}`, 14, 22);
+    
+    const tableData = stockPreview.map(item => [
+      item.products?.name || "-",
+      item.variant || "-",
+      item.stock?.toString() || "0",
+    ]);
+
+    autoTable(doc, {
+      head: [["Produk", "Varian", "Stok"]],
+      body: tableData,
+      startY: 28,
+    });
+
+    doc.save(`Laporan-Stok-${format(new Date(), "ddMMyyyy-HHmmss")}.pdf`);
+    toast({ title: "Sukses", description: "PDF berhasil diunduh" });
+  };
+
+  const downloadStockInPDF = () => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(16);
+    doc.text("Riwayat Stok Masuk", 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Periode: ${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}`, 14, 22);
+    
+    const tableData = stockInPreview.map(item => [
+      format(new Date(item.created_at), "dd/MM/yyyy"),
+      item.products?.name || "-",
+      item.variant || "-",
+      item.qty?.toString() || "0",
+      item.jenis_stok_masuk?.name || "-",
+      item.cabang?.name || "-",
+    ]);
+
+    autoTable(doc, {
+      head: [["Tanggal", "Produk", "Varian", "Qty", "Jenis", "Cabang"]],
+      body: tableData,
+      startY: 28,
+    });
+
+    doc.save(`Riwayat-Stok-Masuk-${format(new Date(), "ddMMyyyy-HHmmss")}.pdf`);
+    toast({ title: "Sukses", description: "PDF berhasil diunduh" });
+  };
+
+  const downloadStockOutPDF = () => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(16);
+    doc.text("Riwayat Stok Keluar", 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Periode: ${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}`, 14, 22);
+    
+    const tableData = stockOutPreview.map(item => [
+      format(new Date(item.created_at), "dd/MM/yyyy"),
+      item.products?.name || "-",
+      item.variant || "-",
+      item.qty?.toString() || "0",
+      item.jenis_stok_keluar?.name || "-",
+      item.tujuan_category || "-",
+    ]);
+
+    autoTable(doc, {
+      head: [["Tanggal", "Produk", "Varian", "Qty", "Jenis", "Tujuan"]],
+      body: tableData,
+      startY: 28,
+    });
+
+    doc.save(`Riwayat-Stok-Keluar-${format(new Date(), "ddMMyyyy-HHmmss")}.pdf`);
+    toast({ title: "Sukses", description: "PDF berhasil diunduh" });
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -271,7 +352,7 @@ function LaporanContent() {
                 <CardTitle>Preview Laporan Stok Produk</CardTitle>
                 <CardDescription>Menampilkan 10 item pertama</CardDescription>
               </div>
-              <Button onClick={() => alert("Fitur unduh PDF akan segera tersedia")}>
+              <Button onClick={downloadStockPDF}>
                 <Download className="mr-2 h-4 w-4" />
                 Unduh PDF
               </Button>
@@ -322,7 +403,7 @@ function LaporanContent() {
                 <CardTitle>Preview Riwayat Stok Masuk</CardTitle>
                 <CardDescription>Menampilkan 10 transaksi terakhir</CardDescription>
               </div>
-              <Button variant="secondary" onClick={() => alert("Fitur unduh PDF akan segera tersedia")}>
+              <Button variant="secondary" onClick={downloadStockInPDF}>
                 <Download className="mr-2 h-4 w-4" />
                 Unduh PDF
               </Button>
@@ -373,7 +454,7 @@ function LaporanContent() {
                 <CardTitle>Preview Riwayat Stok Keluar</CardTitle>
                 <CardDescription>Menampilkan 10 transaksi terakhir</CardDescription>
               </div>
-              <Button variant="outline" onClick={() => alert("Fitur unduh PDF akan segera tersedia")}>
+              <Button variant="outline" onClick={downloadStockOutPDF}>
                 <Download className="mr-2 h-4 w-4" />
                 Unduh PDF
               </Button>

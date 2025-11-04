@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Combobox } from "@/components/ui/combobox";
+import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, Save } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
@@ -15,11 +16,6 @@ interface BulkItem {
   product_name: string;
   variant: string;
   qty: string;
-  plat_nomor: string;
-  supir: string;
-  mandor: string;
-  no_surat_jalan: string;
-  keterangan: string;
 }
 
 interface Props {
@@ -33,9 +29,15 @@ interface Props {
 
 export function BulkStockOutForm({ products, jenisStokKeluar, cabang, userId, onSuccess, onCancel }: Props) {
   const [items, setItems] = useState<BulkItem[]>([]);
+  // Common fields
   const [jenisStokKeluarId, setJenisStokKeluarId] = useState("");
   const [tujuanCategory, setTujuanCategory] = useState("");
   const [cabangId, setCabangId] = useState("");
+  const [platNomor, setPlatNomor] = useState("");
+  const [supir, setSupir] = useState("");
+  const [mandor, setMandor] = useState("");
+  const [noSuratJalan, setNoSuratJalan] = useState("");
+  const [keterangan, setKeterangan] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const addItem = () => {
@@ -45,11 +47,6 @@ export function BulkStockOutForm({ products, jenisStokKeluar, cabang, userId, on
       product_name: "",
       variant: "",
       qty: "",
-      plat_nomor: "",
-      supir: "",
-      mandor: "",
-      no_surat_jalan: "",
-      keterangan: "",
     }]);
   };
 
@@ -115,11 +112,11 @@ export function BulkStockOutForm({ products, jenisStokKeluar, cabang, userId, on
         jenis_stok_keluar_id: jenisStokKeluarId,
         cabang_id: tujuanCategory === "CABANG" ? cabangId : null,
         qty: parseInt(item.qty),
-        plat_nomor: item.plat_nomor || null,
-        supir: item.supir || null,
-        mandor: item.mandor || null,
-        no_surat_jalan: item.no_surat_jalan || null,
-        keterangan: item.keterangan || null,
+        plat_nomor: platNomor || null,
+        supir: supir || null,
+        mandor: mandor || null,
+        no_surat_jalan: noSuratJalan || null,
+        keterangan: keterangan || null,
       }));
 
       const { error } = await supabase.from("stock_out").insert(insertData);
@@ -148,51 +145,97 @@ export function BulkStockOutForm({ products, jenisStokKeluar, cabang, userId, on
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-3 gap-4">
-        <div className="space-y-2">
-          <Label>Jenis Stok Keluar *</Label>
-          <Select value={jenisStokKeluarId} onValueChange={handleJenisChange}>
-            <SelectTrigger>
-              <SelectValue placeholder="Pilih jenis" />
-            </SelectTrigger>
-            <SelectContent>
-              {jenisStokKeluar.map(jenis => (
-                <SelectItem key={jenis.id} value={jenis.id}>
-                  {jenis.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Kategori Tujuan</Label>
-          <Input value={tujuanCategory} disabled placeholder="Otomatis terisi" />
-        </div>
-        {tujuanCategory === "CABANG" && (
+      {/* Common Information Section */}
+      <div>
+        <h3 className="text-lg font-semibold mb-4">Informasi Umum</h3>
+        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Cabang Tujuan *</Label>
-            <Select value={cabangId} onValueChange={setCabangId}>
+            <Label>Jenis Stok Keluar *</Label>
+            <Select value={jenisStokKeluarId} onValueChange={handleJenisChange}>
               <SelectTrigger>
-                <SelectValue placeholder="Pilih cabang" />
+                <SelectValue placeholder="Pilih jenis" />
               </SelectTrigger>
               <SelectContent>
-                {cabang.map(c => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
+                {jenisStokKeluar.map(jenis => (
+                  <SelectItem key={jenis.id} value={jenis.id}>
+                    {jenis.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-        )}
+          <div className="space-y-2">
+            <Label>Kategori Tujuan</Label>
+            <Input value={tujuanCategory} disabled placeholder="Otomatis terisi" />
+          </div>
+          {tujuanCategory === "CABANG" && (
+            <div className="space-y-2 col-span-2">
+              <Label>Cabang Tujuan *</Label>
+              <Select value={cabangId} onValueChange={setCabangId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih cabang" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cabang.map(c => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label>Plat Nomor Mobil</Label>
+            <Input
+              value={platNomor}
+              onChange={(e) => setPlatNomor(e.target.value)}
+              placeholder="B 1234 XYZ"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Supir</Label>
+            <Input
+              value={supir}
+              onChange={(e) => setSupir(e.target.value)}
+              placeholder="Nama supir"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Mandor</Label>
+            <Input
+              value={mandor}
+              onChange={(e) => setMandor(e.target.value)}
+              placeholder="Nama mandor"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>No. Surat Jalan</Label>
+            <Input
+              value={noSuratJalan}
+              onChange={(e) => setNoSuratJalan(e.target.value)}
+              placeholder="SJ-001"
+            />
+          </div>
+          <div className="space-y-2 col-span-2">
+            <Label>Keterangan</Label>
+            <Textarea
+              value={keterangan}
+              onChange={(e) => setKeterangan(e.target.value)}
+              placeholder="Keterangan tambahan"
+              rows={2}
+            />
+          </div>
+        </div>
       </div>
 
+      {/* Items Section */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <Label className="text-lg font-semibold">Daftar Item ({items.length})</Label>
+          <h3 className="text-lg font-semibold">Daftar Produk ({items.length})</h3>
           <Button onClick={addItem} size="sm">
             <Plus className="mr-2 h-4 w-4" />
-            Tambah Item
+            Tambah Produk
           </Button>
         </div>
 
@@ -200,14 +243,9 @@ export function BulkStockOutForm({ products, jenisStokKeluar, cabang, userId, on
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[250px]">Produk *</TableHead>
-                <TableHead className="w-[150px]">Varian</TableHead>
-                <TableHead className="w-[100px]">Qty *</TableHead>
-                <TableHead className="w-[120px]">Plat Nomor</TableHead>
-                <TableHead className="w-[120px]">Supir</TableHead>
-                <TableHead className="w-[120px]">Mandor</TableHead>
-                <TableHead className="w-[150px]">No. Surat Jalan</TableHead>
-                <TableHead className="w-[200px]">Keterangan</TableHead>
+                <TableHead className="w-[300px]">Produk *</TableHead>
+                <TableHead className="w-[200px]">Varian</TableHead>
+                <TableHead className="w-[150px]">Qty *</TableHead>
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -250,41 +288,6 @@ export function BulkStockOutForm({ products, jenisStokKeluar, cabang, userId, on
                         value={item.qty}
                         onChange={(e) => updateItem(item.id, "qty", e.target.value)}
                         placeholder="0"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={item.plat_nomor}
-                        onChange={(e) => updateItem(item.id, "plat_nomor", e.target.value)}
-                        placeholder="B 1234 XYZ"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={item.supir}
-                        onChange={(e) => updateItem(item.id, "supir", e.target.value)}
-                        placeholder="Nama supir"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={item.mandor}
-                        onChange={(e) => updateItem(item.id, "mandor", e.target.value)}
-                        placeholder="Nama mandor"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={item.no_surat_jalan}
-                        onChange={(e) => updateItem(item.id, "no_surat_jalan", e.target.value)}
-                        placeholder="SJ-001"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={item.keterangan}
-                        onChange={(e) => updateItem(item.id, "keterangan", e.target.value)}
-                        placeholder="Keterangan"
                       />
                     </TableCell>
                     <TableCell>

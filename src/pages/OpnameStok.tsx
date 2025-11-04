@@ -140,7 +140,8 @@ function OpnameStokContent() {
     const qty_before = currentStock;
     const qty_difference = formData.qty_after - qty_before;
 
-    const { error } = await supabase.from("stock_opname").insert({
+    // Insert opname record
+    const { error: opnameError } = await supabase.from("stock_opname").insert({
       product_id: formData.product_id,
       variant: hasVariants ? formData.variant : null,
       qty_before,
@@ -150,14 +151,49 @@ function OpnameStokContent() {
       user_id: user.id,
     });
 
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Sukses", description: "Opname stok berhasil ditambahkan" });
-      setShowDialog(false);
-      setFormData({ product_id: "", variant: "", qty_after: 0, reason: "" });
-      fetchOpnameRecords();
+    if (opnameError) {
+      toast({ title: "Error", description: opnameError.message, variant: "destructive" });
+      return;
     }
+
+    // Update actual stock by creating stock_in or stock_out entry
+    if (qty_difference !== 0) {
+      if (qty_difference > 0) {
+        // Stock increased - create stock_in entry
+        const { error: stockInError } = await supabase.from("stock_in").insert({
+          user_id: user.id,
+          product_id: formData.product_id,
+          variant: hasVariants ? formData.variant : null,
+          qty: Math.abs(qty_difference),
+          jenis_stok_masuk_id: (await supabase.from("jenis_stok_masuk").select("id").limit(1).single()).data?.id,
+          keterangan: `Penyesuaian stok dari opname: ${formData.reason}`,
+        });
+
+        if (stockInError) {
+          toast({ title: "Warning", description: "Opname recorded but stock adjustment failed", variant: "destructive" });
+        }
+      } else {
+        // Stock decreased - create stock_out entry
+        const { error: stockOutError } = await supabase.from("stock_out").insert({
+          user_id: user.id,
+          product_id: formData.product_id,
+          variant: hasVariants ? formData.variant : null,
+          qty: Math.abs(qty_difference),
+          jenis_stok_keluar_id: (await supabase.from("jenis_stok_keluar").select("id").limit(1).single()).data?.id,
+          tujuan_category: "SAJ_PUSAT",
+          keterangan: `Penyesuaian stok dari opname: ${formData.reason}`,
+        });
+
+        if (stockOutError) {
+          toast({ title: "Warning", description: "Opname recorded but stock adjustment failed", variant: "destructive" });
+        }
+      }
+    }
+
+    toast({ title: "Sukses", description: "Opname stok berhasil ditambahkan dan stok disesuaikan" });
+    setShowDialog(false);
+    setFormData({ product_id: "", variant: "", qty_after: 0, reason: "" });
+    fetchOpnameRecords();
   };
 
   const totalPages = Math.ceil(totalCount / itemsPerPage);

@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format, startOfDay, endOfDay } from "date-fns";
+import { id as localeId } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Combobox } from "@/components/ui/combobox";
 
@@ -446,7 +447,7 @@ function StokMasukContent() {
               <PopoverTrigger asChild>
                 <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dateFrom && "text-muted-foreground")}>
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateFrom ? format(dateFrom, "PPP") : <span>Pilih tanggal</span>}
+                  {dateFrom ? format(dateFrom, "dd/MM/yyyy") : <span>Pilih tanggal</span>}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -467,7 +468,7 @@ function StokMasukContent() {
               <PopoverTrigger asChild>
                 <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dateTo && "text-muted-foreground")}>
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateTo ? format(dateTo, "PPP") : <span>Pilih tanggal</span>}
+                  {dateTo ? format(dateTo, "dd/MM/yyyy") : <span>Pilih tanggal</span>}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
