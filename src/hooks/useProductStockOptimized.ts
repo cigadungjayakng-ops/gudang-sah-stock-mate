@@ -11,6 +11,12 @@ export function useProductStockOptimized(productId: string) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Skip if empty productId
+    if (!productId) {
+      setLoading(false);
+      return;
+    }
+
     const fetchStock = async () => {
       try {
         // Use materialized view for faster stock lookup

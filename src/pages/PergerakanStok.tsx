@@ -70,12 +70,14 @@ function PergerakanStokContent() {
   }, [user]);
 
   useEffect(() => {
-    if (selectedProduct && selectedProduct !== "all") {
-      fetchMovements();
-    } else if (selectedProduct === "all") {
-      fetchAllMovements();
+    if (products.length > 0) {
+      if (selectedProduct && selectedProduct !== "all") {
+        fetchMovements();
+      } else if (selectedProduct === "all") {
+        fetchAllMovements();
+      }
     }
-  }, [selectedProduct, selectedVariant, dateRange]);
+  }, [selectedProduct, selectedVariant, dateRange, products]);
 
   const fetchProducts = async () => {
     if (!user) return;

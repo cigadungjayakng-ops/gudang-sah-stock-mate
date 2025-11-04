@@ -297,12 +297,12 @@ function LaporanContent() {
             {hasVariants && (
               <div className="space-y-2">
                 <Label>Varian</Label>
-                <Select value={variantFilter} onValueChange={setVariantFilter}>
+                <Select value={variantFilter || "all"} onValueChange={(val) => setVariantFilter(val === "all" ? "" : val)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Semua Varian" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Semua Varian</SelectItem>
+                    <SelectItem value="all">Semua Varian</SelectItem>
                     {selectedProduct.variants.map((variant: string) => (
                       <SelectItem key={variant} value={variant}>
                         {variant}
