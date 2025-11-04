@@ -152,10 +152,9 @@ export function BulkStockInForm({ products, jenisStokMasuk, cabang, userId, onSu
           <Label>Cabang (Opsional)</Label>
           <Select value={cabangId} onValueChange={setCabangId}>
             <SelectTrigger>
-              <SelectValue placeholder="Pilih cabang" />
+              <SelectValue placeholder="Pilih cabang (opsional)" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tidak ada</SelectItem>
               {cabang.map(c => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
