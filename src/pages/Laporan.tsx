@@ -110,7 +110,7 @@ function LaporanContent() {
         variant: item.variant,
         stock_in: 0,
         stock_out: 0,
-        owner: userRole === "superadmin" ? item.profiles?.name : null,
+        user_id: item.user_id,
       };
       stockMap.set(key, { ...current, stock_in: current.stock_in + item.qty });
     });
@@ -123,15 +123,32 @@ function LaporanContent() {
       }
     });
 
-    const preview = Array.from(stockMap.entries())
+    const previewData = Array.from(stockMap.entries())
       .map(([, value]) => ({
         ...value,
         stock: value.stock_in - value.stock_out,
       }))
-      .filter(item => !variantFilter || item.variant === variantFilter)
-      .slice(0, 10);
+      .filter(item => !variantFilter || item.variant === variantFilter);
 
-    setStockPreview(preview);
+    // Fetch owner names if superadmin
+    if (userRole === "superadmin") {
+      const userIds = [...new Set(previewData.map(item => item.user_id).filter(Boolean))];
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, name")
+          .in("id", userIds);
+        const ownerMap = new Map<string, string>();
+        profiles?.forEach((profile: any) => {
+          ownerMap.set(profile.id, profile.name);
+        });
+        previewData.forEach(item => {
+          item.owner = ownerMap.get(item.user_id) || null;
+        });
+      }
+    }
+
+    setStockPreview(previewData.slice(0, 10));
   };
 
   const fetchStockInPreview = async () => {
@@ -139,7 +156,7 @@ function LaporanContent() {
 
     let query = supabase
       .from("stock_in")
-      .select("*, products(name, user_id), jenis_stok_masuk(name), profiles!stock_in_user_id_fkey(name)")
+      .select("*, products(name, user_id), jenis_stok_masuk(name)")
       .gte("created_at", dateRange.from.toISOString())
       .lte("created_at", dateRange.to.toISOString())
       .order("created_at", { ascending: false })
@@ -156,6 +173,25 @@ function LaporanContent() {
     const { data } = await query;
     
     const filtered = data?.filter(item => !variantFilter || item.variant === variantFilter) || [];
+    
+    // Fetch owner names if superadmin
+    if (userRole === "superadmin" && filtered.length > 0) {
+      const userIds = [...new Set(filtered.map((item: any) => item.user_id).filter(Boolean))];
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, name")
+          .in("id", userIds);
+        const ownerMap = new Map<string, string>();
+        profiles?.forEach((profile: any) => {
+          ownerMap.set(profile.id, profile.name);
+        });
+        filtered.forEach((item: any) => {
+          item.profiles = { name: ownerMap.get(item.user_id) };
+        });
+      }
+    }
+    
     setStockInPreview(filtered);
   };
 
@@ -164,7 +200,7 @@ function LaporanContent() {
 
     let query = supabase
       .from("stock_out")
-      .select("*, products(name, user_id), jenis_stok_keluar(name), profiles!stock_out_user_id_fkey(name)")
+      .select("*, products(name, user_id), jenis_stok_keluar(name)")
       .gte("created_at", dateRange.from.toISOString())
       .lte("created_at", dateRange.to.toISOString())
       .order("created_at", { ascending: false })
@@ -181,13 +217,105 @@ function LaporanContent() {
     const { data } = await query;
     
     const filtered = data?.filter(item => !variantFilter || item.variant === variantFilter) || [];
+    
+    // Fetch owner names if superadmin
+    if (userRole === "superadmin" && filtered.length > 0) {
+      const userIds = [...new Set(filtered.map((item: any) => item.user_id).filter(Boolean))];
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, name")
+          .in("id", userIds);
+        const ownerMap = new Map<string, string>();
+        profiles?.forEach((profile: any) => {
+          ownerMap.set(profile.id, profile.name);
+        });
+        filtered.forEach((item: any) => {
+          item.profiles = { name: ownerMap.get(item.user_id) };
+        });
+      }
+    }
+    
     setStockOutPreview(filtered);
   };
 
   const selectedProduct = products.find(p => p.id === productFilter);
   const hasVariants = productFilter && selectedProduct?.variants && Array.isArray(selectedProduct.variants) && selectedProduct.variants.length > 0;
 
-  const downloadStockPDF = () => {
+  const downloadStockPDF = async () => {
+    if (!user) return;
+    
+    let stockInQuery = supabase
+      .from("stock_in")
+      .select("product_id, variant, qty, user_id, products(name, user_id)")
+      .gte("created_at", dateRange.from.toISOString())
+      .lte("created_at", dateRange.to.toISOString());
+
+    let stockOutQuery = supabase
+      .from("stock_out")
+      .select("product_id, variant, qty")
+      .gte("created_at", dateRange.from.toISOString())
+      .lte("created_at", dateRange.to.toISOString());
+
+    if (userRole === "user") {
+      stockInQuery = stockInQuery.eq("user_id", user.id);
+      stockOutQuery = stockOutQuery.eq("user_id", user.id);
+    }
+
+    if (productFilter) {
+      stockInQuery = stockInQuery.eq("product_id", productFilter);
+      stockOutQuery = stockOutQuery.eq("product_id", productFilter);
+    }
+
+    const [{ data: stockIn }, { data: stockOut }] = await Promise.all([
+      stockInQuery,
+      stockOutQuery,
+    ]);
+
+    const stockMap = new Map<string, any>();
+
+    stockIn?.forEach((item: any) => {
+      const key = `${item.product_id}-${item.variant || "null"}`;
+      const current = stockMap.get(key) || { 
+        product_name: item.products?.name || "", 
+        variant: item.variant,
+        stock_in: 0,
+        stock_out: 0,
+        user_id: item.user_id,
+      };
+      stockMap.set(key, { ...current, stock_in: current.stock_in + item.qty });
+    });
+
+    stockOut?.forEach((item: any) => {
+      const key = `${item.product_id}-${item.variant || "null"}`;
+      const current = stockMap.get(key);
+      if (current) {
+        stockMap.set(key, { ...current, stock_out: current.stock_out + item.qty });
+      }
+    });
+
+    const fullData = Array.from(stockMap.entries())
+      .map(([, value]) => ({
+        ...value,
+        stock: value.stock_in - value.stock_out,
+      }))
+      .filter(item => !variantFilter || item.variant === variantFilter);
+
+    // Fetch owner names if superadmin
+    let ownerMap = new Map<string, string>();
+    if (userRole === "superadmin") {
+      const userIds = [...new Set(fullData.map(item => item.user_id).filter(Boolean))];
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, name")
+          .in("id", userIds);
+        profiles?.forEach((profile: any) => {
+          ownerMap.set(profile.id, profile.name);
+        });
+      }
+    }
+
     const doc = new jsPDF();
     
     doc.setFontSize(16);
@@ -195,14 +323,28 @@ function LaporanContent() {
     doc.setFontSize(10);
     doc.text(`Periode: ${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}`, 14, 22);
     
-    const tableData = stockPreview.map(item => [
-      item.products?.name || "-",
-      item.variant || "-",
-      item.stock?.toString() || "0",
-    ]);
+    const tableData = fullData.map(item => {
+      const row = [
+        item.product_name || "-",
+        item.variant || "-",
+      ];
+      if (userRole === "superadmin") {
+        row.push(ownerMap.get(item.user_id) || "-");
+      }
+      row.push(
+        item.stock_in?.toString() || "0",
+        item.stock_out?.toString() || "0",
+        item.stock?.toString() || "0"
+      );
+      return row;
+    });
+
+    const headers = userRole === "superadmin" 
+      ? [["Produk", "Varian", "Pemilik", "Masuk", "Keluar", "Stok"]]
+      : [["Produk", "Varian", "Masuk", "Keluar", "Stok"]];
 
     autoTable(doc, {
-      head: [["Produk", "Varian", "Stok"]],
+      head: headers,
       body: tableData,
       startY: 28,
     });
@@ -211,7 +353,43 @@ function LaporanContent() {
     toast({ title: "Sukses", description: "PDF berhasil diunduh" });
   };
 
-  const downloadStockInPDF = () => {
+  const downloadStockInPDF = async () => {
+    if (!user) return;
+
+    let query = supabase
+      .from("stock_in")
+      .select("*, products(name, user_id), jenis_stok_masuk(name)")
+      .gte("created_at", dateRange.from.toISOString())
+      .lte("created_at", dateRange.to.toISOString())
+      .order("created_at", { ascending: false });
+
+    if (userRole === "user") {
+      query = query.eq("user_id", user.id);
+    }
+
+    if (productFilter) {
+      query = query.eq("product_id", productFilter);
+    }
+
+    const { data } = await query;
+    
+    const filtered = data?.filter(item => !variantFilter || item.variant === variantFilter) || [];
+
+    // Fetch owner names if superadmin
+    let ownerMap = new Map<string, string>();
+    if (userRole === "superadmin") {
+      const userIds = [...new Set(filtered.map((item: any) => item.user_id).filter(Boolean))];
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, name")
+          .in("id", userIds);
+        profiles?.forEach((profile: any) => {
+          ownerMap.set(profile.id, profile.name);
+        });
+      }
+    }
+
     const doc = new jsPDF();
     
     doc.setFontSize(16);
@@ -219,17 +397,28 @@ function LaporanContent() {
     doc.setFontSize(10);
     doc.text(`Periode: ${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}`, 14, 22);
     
-    const tableData = stockInPreview.map(item => [
-      format(new Date(item.created_at), "dd/MM/yyyy"),
-      item.products?.name || "-",
-      item.variant || "-",
-      item.qty?.toString() || "0",
-      item.jenis_stok_masuk?.name || "-",
-      item.cabang?.name || "-",
-    ]);
+    const tableData = filtered.map((item: any) => {
+      const row = [
+        format(new Date(item.created_at), "dd/MM/yyyy"),
+        item.products?.name || "-",
+        item.variant || "-",
+      ];
+      if (userRole === "superadmin") {
+        row.push(ownerMap.get(item.user_id) || "-");
+      }
+      row.push(
+        item.jenis_stok_masuk?.name || "-",
+        item.qty?.toString() || "0"
+      );
+      return row;
+    });
+
+    const headers = userRole === "superadmin"
+      ? [["Tanggal", "Produk", "Varian", "Pemilik", "Jenis", "Qty"]]
+      : [["Tanggal", "Produk", "Varian", "Jenis", "Qty"]];
 
     autoTable(doc, {
-      head: [["Tanggal", "Produk", "Varian", "Qty", "Jenis", "Cabang"]],
+      head: headers,
       body: tableData,
       startY: 28,
     });
@@ -238,7 +427,43 @@ function LaporanContent() {
     toast({ title: "Sukses", description: "PDF berhasil diunduh" });
   };
 
-  const downloadStockOutPDF = () => {
+  const downloadStockOutPDF = async () => {
+    if (!user) return;
+
+    let query = supabase
+      .from("stock_out")
+      .select("*, products(name, user_id), jenis_stok_keluar(name)")
+      .gte("created_at", dateRange.from.toISOString())
+      .lte("created_at", dateRange.to.toISOString())
+      .order("created_at", { ascending: false });
+
+    if (userRole === "user") {
+      query = query.eq("user_id", user.id);
+    }
+
+    if (productFilter) {
+      query = query.eq("product_id", productFilter);
+    }
+
+    const { data } = await query;
+    
+    const filtered = data?.filter(item => !variantFilter || item.variant === variantFilter) || [];
+
+    // Fetch owner names if superadmin
+    let ownerMap = new Map<string, string>();
+    if (userRole === "superadmin") {
+      const userIds = [...new Set(filtered.map((item: any) => item.user_id).filter(Boolean))];
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, name")
+          .in("id", userIds);
+        profiles?.forEach((profile: any) => {
+          ownerMap.set(profile.id, profile.name);
+        });
+      }
+    }
+
     const doc = new jsPDF();
     
     doc.setFontSize(16);
@@ -246,17 +471,28 @@ function LaporanContent() {
     doc.setFontSize(10);
     doc.text(`Periode: ${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}`, 14, 22);
     
-    const tableData = stockOutPreview.map(item => [
-      format(new Date(item.created_at), "dd/MM/yyyy"),
-      item.products?.name || "-",
-      item.variant || "-",
-      item.qty?.toString() || "0",
-      item.jenis_stok_keluar?.name || "-",
-      item.tujuan_category || "-",
-    ]);
+    const tableData = filtered.map((item: any) => {
+      const row = [
+        format(new Date(item.created_at), "dd/MM/yyyy"),
+        item.products?.name || "-",
+        item.variant || "-",
+      ];
+      if (userRole === "superadmin") {
+        row.push(ownerMap.get(item.user_id) || "-");
+      }
+      row.push(
+        item.jenis_stok_keluar?.name || "-",
+        item.qty?.toString() || "0"
+      );
+      return row;
+    });
+
+    const headers = userRole === "superadmin"
+      ? [["Tanggal", "Produk", "Varian", "Pemilik", "Jenis", "Qty"]]
+      : [["Tanggal", "Produk", "Varian", "Jenis", "Qty"]];
 
     autoTable(doc, {
-      head: [["Tanggal", "Produk", "Varian", "Qty", "Jenis", "Tujuan"]],
+      head: headers,
       body: tableData,
       startY: 28,
     });

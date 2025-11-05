@@ -38,7 +38,6 @@ interface StockInFormData {
 
 function StokMasukContent() {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [detailDialog, setDetailDialog] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [jenisStokMasuk, setJenisStokMasuk] = useState<any[]>([]);
@@ -246,195 +245,30 @@ function StokMasukContent() {
           <p className="text-muted-foreground">Kelola data stok masuk gudang</p>
         </div>
         {userRole === "user" && (
-          <div className="flex gap-2">
-            <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline">
-                  <List className="mr-2 h-4 w-4" />
-                  Input Banyak Item
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Tambah Stok Masuk (Banyak Item)</DialogTitle>
-                </DialogHeader>
-                <BulkStockInForm
-                  products={products}
-                  jenisStokMasuk={jenisStokMasuk}
-                  cabang={cabang}
-                  userId={user?.id || ""}
-                  onSuccess={() => {
-                    setBulkDialogOpen(false);
-                    fetchStockInData();
-                  }}
-                  onCancel={() => setBulkDialogOpen(false)}
-                />
-              </DialogContent>
-            </Dialog>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Tambah Stok Masuk
-                </Button>
-              </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Tambah Stok Masuk
+              </Button>
+            </DialogTrigger>
+          <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Tambah Stok Masuk</DialogTitle>
             </DialogHeader>
-            
-            <Alert variant="destructive" className="mb-4">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
-                ⚠️ Setelah data diposting, tidak bisa dibatalkan.
-              </AlertDescription>
-            </Alert>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="product">Produk</Label>
-                  <Combobox
-                    options={products.map(p => ({ value: p.id, label: p.name }))}
-                    value={formData.product_id}
-                    onValueChange={(value) => setFormData({ ...formData, product_id: value })}
-                    placeholder="Cari produk..."
-                    emptyText="Produk tidak ditemukan"
-                  />
-                </div>
-
-                {selectedProduct && selectedProduct.variants && selectedProduct.variants.length > 0 && (
-                  <div className="space-y-2">
-                    <Label htmlFor="variant">Varian</Label>
-                    <Select
-                      value={formData.variant}
-                      onValueChange={(value) => setFormData({ ...formData, variant: value })}
-                    >
-                      <SelectTrigger>
-                  <SelectValue placeholder="Pilih varian" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_placeholder" disabled>Pilih Varian</SelectItem>
-                  {selectedProduct.variants.map((variant: string, index: number) => (
-                    <SelectItem key={`variant-${index}`} value={variant}>{variant}</SelectItem>
-                  ))}
-                </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="jenis">Jenis Stok Masuk</Label>
-                  <Select
-                    value={formData.jenis_stok_masuk_id}
-                    onValueChange={(value) => {
-                      setFormData({ ...formData, jenis_stok_masuk_id: value });
-                      setSelectedJenis(getJenisName(value));
-                    }}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih jenis" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {jenisStokMasuk.map((jenis) => (
-                        <SelectItem key={jenis.id} value={jenis.id}>
-                          {jenis.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {selectedJenis === "RETUR CABANG" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="cabang">Cabang</Label>
-                    <Select
-                      value={formData.cabang_id}
-                      onValueChange={(value) => setFormData({ ...formData, cabang_id: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Pilih cabang" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {cabang.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="qty">Jumlah</Label>
-                  <Input
-                    id="qty"
-                    type="number"
-                    min="1"
-                    value={formData.qty}
-                    onChange={(e) => setFormData({ ...formData, qty: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="plat_nomor">Plat Nomor Mobil</Label>
-                  <Input
-                    id="plat_nomor"
-                    value={formData.plat_nomor}
-                    onChange={(e) => setFormData({ ...formData, plat_nomor: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="supir">Supir</Label>
-                  <Input
-                    id="supir"
-                    value={formData.supir}
-                    onChange={(e) => setFormData({ ...formData, supir: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="mandor">Mandor</Label>
-                  <Input
-                    id="mandor"
-                    value={formData.mandor}
-                    onChange={(e) => setFormData({ ...formData, mandor: e.target.value })}
-                  />
-                </div>
-
-                {selectedJenis === "PEMBELANJAAN (SUPPLIER)" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="no_surat_jalan">No. Surat Jalan</Label>
-                    <Input
-                      id="no_surat_jalan"
-                      value={formData.no_surat_jalan}
-                      onChange={(e) => setFormData({ ...formData, no_surat_jalan: e.target.value })}
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="keterangan">Keterangan (Opsional)</Label>
-                <Textarea
-                  id="keterangan"
-                  value={formData.keterangan}
-                  onChange={(e) => setFormData({ ...formData, keterangan: e.target.value })}
-                  rows={3}
-                />
-              </div>
-
-              <Button type="submit" className="w-full">
-                Simpan
-              </Button>
-            </form>
+            <BulkStockInForm
+              products={products}
+              jenisStokMasuk={jenisStokMasuk}
+              cabang={cabang}
+              userId={user?.id || ""}
+              onSuccess={() => {
+                setDialogOpen(false);
+                fetchStockInData();
+              }}
+              onCancel={() => setDialogOpen(false)}
+            />
           </DialogContent>
         </Dialog>
-          </div>
         )}
       </div>
 
