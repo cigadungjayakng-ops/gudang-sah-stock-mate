@@ -31,6 +31,7 @@ export function BulkStockInForm({ products, jenisStokMasuk, cabang, userId, onSu
   const [items, setItems] = useState<BulkItem[]>([]);
   // Common fields
   const [jenisStokMasukId, setJenisStokMasukId] = useState("");
+  const [selectedJenisName, setSelectedJenisName] = useState("");
   const [cabangId, setCabangId] = useState("");
   const [platNomor, setPlatNomor] = useState("");
   const [supir, setSupir] = useState("");
@@ -38,6 +39,15 @@ export function BulkStockInForm({ products, jenisStokMasuk, cabang, userId, onSu
   const [noSuratJalan, setNoSuratJalan] = useState("");
   const [keterangan, setKeterangan] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleJenisChange = (value: string) => {
+    setJenisStokMasukId(value);
+    const selectedJenis = jenisStokMasuk.find(j => j.id === value);
+    setSelectedJenisName(selectedJenis?.name || "");
+    if (selectedJenis?.name !== "RETUR CABANG") {
+      setCabangId("");
+    }
+  };
 
   const addItem = () => {
     setItems([...items, {
@@ -69,6 +79,11 @@ export function BulkStockInForm({ products, jenisStokMasuk, cabang, userId, onSu
   const handleSubmit = async () => {
     if (!jenisStokMasukId) {
       toast({ title: "Error", description: "Pilih jenis stok masuk", variant: "destructive" });
+      return;
+    }
+
+    if (selectedJenisName === "RETUR CABANG" && !cabangId) {
+      toast({ title: "Error", description: "Pilih cabang untuk RETUR CABANG", variant: "destructive" });
       return;
     }
 
@@ -133,7 +148,7 @@ export function BulkStockInForm({ products, jenisStokMasuk, cabang, userId, onSu
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Jenis Stok Masuk *</Label>
-            <Select value={jenisStokMasukId} onValueChange={setJenisStokMasukId}>
+            <Select value={jenisStokMasukId} onValueChange={handleJenisChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Pilih jenis" />
               </SelectTrigger>
@@ -146,21 +161,23 @@ export function BulkStockInForm({ products, jenisStokMasuk, cabang, userId, onSu
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label>Cabang (Opsional)</Label>
-            <Select value={cabangId} onValueChange={setCabangId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih cabang (opsional)" />
-              </SelectTrigger>
-              <SelectContent>
-                {cabang.map(c => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {selectedJenisName === "RETUR CABANG" && (
+            <div className="space-y-2">
+              <Label>Cabang *</Label>
+              <Select value={cabangId} onValueChange={setCabangId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih cabang" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cabang.map(c => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-2">
             <Label>Plat Nomor Mobil</Label>
             <Input

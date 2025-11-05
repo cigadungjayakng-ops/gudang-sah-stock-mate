@@ -57,7 +57,9 @@ function LaporanContent() {
   }, [user, userRole]);
 
   useEffect(() => {
-    if (activeTab === "stok-produk") fetchStockPreview();
+    if (activeTab === "stok-produk") {
+      fetchStockPreview();
+    }
     if (activeTab === "stok-masuk") fetchStockInPreview();
     if (activeTab === "stok-keluar") fetchStockOutPreview();
   }, [activeTab, productFilter, variantFilter, dateRange]);

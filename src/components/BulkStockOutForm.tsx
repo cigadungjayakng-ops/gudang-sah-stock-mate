@@ -149,7 +149,7 @@ export function BulkStockOutForm({ products, jenisStokKeluar, cabang, userId, on
       <div>
         <h3 className="text-lg font-semibold mb-4">Informasi Umum</h3>
         <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
+          <div className="space-y-2 col-span-2">
             <Label>Jenis Stok Keluar *</Label>
             <Select value={jenisStokKeluarId} onValueChange={handleJenisChange}>
               <SelectTrigger>
@@ -163,10 +163,6 @@ export function BulkStockOutForm({ products, jenisStokKeluar, cabang, userId, on
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Kategori Tujuan</Label>
-            <Input value={tujuanCategory} disabled placeholder="Otomatis terisi" />
           </div>
           {tujuanCategory === "CABANG" && (
             <div className="space-y-2 col-span-2">
