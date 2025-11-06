@@ -202,14 +202,16 @@ export function BulkStockInForm({ products, jenisStokMasuk, cabang, userId, onSu
               placeholder="Nama mandor"
             />
           </div>
-          <div className="space-y-2">
-            <Label>No. Surat Jalan</Label>
-            <Input
-              value={noSuratJalan}
-              onChange={(e) => setNoSuratJalan(e.target.value)}
-              placeholder="SJ-001"
-            />
-          </div>
+          {selectedJenisName === "PEMBELANJAAN (SUPPLIER)" && (
+            <div className="space-y-2">
+              <Label>No. Surat Jalan</Label>
+              <Input
+                value={noSuratJalan}
+                onChange={(e) => setNoSuratJalan(e.target.value)}
+                placeholder="SJ-001"
+              />
+            </div>
+          )}
           <div className="space-y-2 col-span-2">
             <Label>Keterangan</Label>
             <Textarea

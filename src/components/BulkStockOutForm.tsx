@@ -18,6 +18,12 @@ interface BulkItem {
   qty: string;
 }
 
+interface JenisStokKeluar {
+  id: string;
+  name: string;
+  tujuan_category: string;
+}
+
 interface Props {
   products: any[];
   jenisStokKeluar: any[];
@@ -31,12 +37,14 @@ export function BulkStockOutForm({ products, jenisStokKeluar, cabang, userId, on
   const [items, setItems] = useState<BulkItem[]>([]);
   // Common fields
   const [jenisStokKeluarId, setJenisStokKeluarId] = useState("");
+  const [jenisStokKeluarName, setJenisStokKeluarName] = useState("");
   const [tujuanCategory, setTujuanCategory] = useState("");
   const [cabangId, setCabangId] = useState("");
   const [platNomor, setPlatNomor] = useState("");
   const [supir, setSupir] = useState("");
   const [mandor, setMandor] = useState("");
-  const [noSuratJalan, setNoSuratJalan] = useState("");
+  const [namaPembeli, setNamaPembeli] = useState("");
+  const [alamat, setAlamat] = useState("");
   const [keterangan, setKeterangan] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -71,9 +79,19 @@ export function BulkStockOutForm({ products, jenisStokKeluar, cabang, userId, on
     setJenisStokKeluarId(value);
     const selectedJenis = jenisStokKeluar.find(j => j.id === value);
     if (selectedJenis) {
+      setJenisStokKeluarName(selectedJenis.name);
       setTujuanCategory(selectedJenis.tujuan_category);
       if (selectedJenis.tujuan_category !== "CABANG") {
         setCabangId("");
+      }
+      // Reset fields based on jenis
+      if (selectedJenis.name !== "PENJUALAN") {
+        setNamaPembeli("");
+        setAlamat("");
+      }
+      if (selectedJenis.name !== "PEMAKAIAN") {
+        setPlatNomor("");
+        setSupir("");
       }
     }
   };
@@ -112,10 +130,11 @@ export function BulkStockOutForm({ products, jenisStokKeluar, cabang, userId, on
         jenis_stok_keluar_id: jenisStokKeluarId,
         cabang_id: tujuanCategory === "CABANG" ? cabangId : null,
         qty: parseInt(item.qty),
-        plat_nomor: platNomor || null,
-        supir: supir || null,
+        plat_nomor: jenisStokKeluarName !== "PEMAKAIAN" ? (platNomor || null) : null,
+        supir: jenisStokKeluarName !== "PEMAKAIAN" ? (supir || null) : null,
         mandor: mandor || null,
-        no_surat_jalan: noSuratJalan || null,
+        nama_pembeli: jenisStokKeluarName === "PENJUALAN" ? (namaPembeli || null) : null,
+        alamat: jenisStokKeluarName === "PENJUALAN" ? (alamat || null) : null,
         keterangan: keterangan || null,
       }));
 
@@ -181,36 +200,52 @@ export function BulkStockOutForm({ products, jenisStokKeluar, cabang, userId, on
               </Select>
             </div>
           )}
-          <div className="space-y-2">
-            <Label>Plat Nomor Mobil</Label>
-            <Input
-              value={platNomor}
-              onChange={(e) => setPlatNomor(e.target.value)}
-              placeholder="B 1234 XYZ"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Supir</Label>
-            <Input
-              value={supir}
-              onChange={(e) => setSupir(e.target.value)}
-              placeholder="Nama supir"
-            />
-          </div>
+          {jenisStokKeluarName === "PENJUALAN" && (
+            <>
+              <div className="space-y-2">
+                <Label>Nama Pembeli</Label>
+                <Input
+                  value={namaPembeli}
+                  onChange={(e) => setNamaPembeli(e.target.value)}
+                  placeholder="Nama pembeli"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Alamat</Label>
+                <Input
+                  value={alamat}
+                  onChange={(e) => setAlamat(e.target.value)}
+                  placeholder="Alamat pembeli"
+                />
+              </div>
+            </>
+          )}
+          {jenisStokKeluarName !== "PEMAKAIAN" && (
+            <>
+              <div className="space-y-2">
+                <Label>Plat Nomor Mobil</Label>
+                <Input
+                  value={platNomor}
+                  onChange={(e) => setPlatNomor(e.target.value)}
+                  placeholder="B 1234 XYZ"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Supir</Label>
+                <Input
+                  value={supir}
+                  onChange={(e) => setSupir(e.target.value)}
+                  placeholder="Nama supir"
+                />
+              </div>
+            </>
+          )}
           <div className="space-y-2">
             <Label>Mandor</Label>
             <Input
               value={mandor}
               onChange={(e) => setMandor(e.target.value)}
               placeholder="Nama mandor"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>No. Surat Jalan</Label>
-            <Input
-              value={noSuratJalan}
-              onChange={(e) => setNoSuratJalan(e.target.value)}
-              placeholder="SJ-001"
             />
           </div>
           <div className="space-y-2 col-span-2">

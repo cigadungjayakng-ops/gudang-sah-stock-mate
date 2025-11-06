@@ -78,13 +78,14 @@ function LaporanContent() {
     
     let stockInQuery = supabase
       .from("stock_in")
-      .select("product_id, variant, qty, products(name, user_id), profiles!stock_in_user_id_fkey(name)")
+      .select("product_id, variant, qty, user_id, products(name, user_id), profiles!stock_in_user_id_fkey(name)")
       .gte("created_at", dateRange.from.toISOString())
-      .lte("created_at", dateRange.to.toISOString());
+      .lte("created_at", dateRange.to.toISOString())
+      .limit(10);
 
     let stockOutQuery = supabase
       .from("stock_out")
-      .select("product_id, variant, qty")
+      .select("product_id, variant, qty, user_id")
       .gte("created_at", dateRange.from.toISOString())
       .lte("created_at", dateRange.to.toISOString());
 
@@ -93,7 +94,7 @@ function LaporanContent() {
       stockOutQuery = stockOutQuery.eq("user_id", user.id);
     }
 
-    if (productFilter) {
+    if (productFilter && productFilter !== "all") {
       stockInQuery = stockInQuery.eq("product_id", productFilter);
       stockOutQuery = stockOutQuery.eq("product_id", productFilter);
     }

@@ -238,12 +238,14 @@ export type Database = {
       }
       stock_out: {
         Row: {
+          alamat: string | null
           cabang_id: string | null
           created_at: string
           id: string
           jenis_stok_keluar_id: string
           keterangan: string | null
           mandor: string | null
+          nama_pembeli: string | null
           no_surat_jalan: string | null
           plat_nomor: string | null
           product_id: string
@@ -254,12 +256,14 @@ export type Database = {
           variant: string | null
         }
         Insert: {
+          alamat?: string | null
           cabang_id?: string | null
           created_at?: string
           id?: string
           jenis_stok_keluar_id: string
           keterangan?: string | null
           mandor?: string | null
+          nama_pembeli?: string | null
           no_surat_jalan?: string | null
           plat_nomor?: string | null
           product_id: string
@@ -270,12 +274,14 @@ export type Database = {
           variant?: string | null
         }
         Update: {
+          alamat?: string | null
           cabang_id?: string | null
           created_at?: string
           id?: string
           jenis_stok_keluar_id?: string
           keterangan?: string | null
           mandor?: string | null
+          nama_pembeli?: string | null
           no_surat_jalan?: string | null
           plat_nomor?: string | null
           product_id?: string
