@@ -526,10 +526,24 @@ function StokKeluarContent() {
                     </>
                   )}
                   
-                  {detailDialog.no_surat_jalan && (
+                  {detailDialog.mandor && (
                     <>
-                      <div className="text-sm font-semibold text-muted-foreground">No. Surat Jalan</div>
-                      <div className="text-sm font-medium font-mono">{detailDialog.no_surat_jalan}</div>
+                      <div className="text-sm font-semibold text-muted-foreground">Mandor</div>
+                      <div className="text-sm font-medium">{detailDialog.mandor}</div>
+                    </>
+                  )}
+                  
+                  {detailDialog.nama_pembeli && (
+                    <>
+                      <div className="text-sm font-semibold text-muted-foreground">Nama Pembeli</div>
+                      <div className="text-sm font-medium">{detailDialog.nama_pembeli}</div>
+                    </>
+                  )}
+                  
+                  {detailDialog.alamat && (
+                    <>
+                      <div className="text-sm font-semibold text-muted-foreground">Alamat</div>
+                      <div className="text-sm">{detailDialog.alamat}</div>
                     </>
                   )}
                   

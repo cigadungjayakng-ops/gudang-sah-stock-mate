@@ -539,6 +539,13 @@ function StokMasukContent() {
                     </>
                   )}
                   
+                  {detailDialog.mandor && (
+                    <>
+                      <div className="text-sm font-semibold text-muted-foreground">Mandor</div>
+                      <div className="text-sm font-medium">{detailDialog.mandor}</div>
+                    </>
+                  )}
+                  
                   {detailDialog.no_surat_jalan && (
                     <>
                       <div className="text-sm font-semibold text-muted-foreground">No. Surat Jalan</div>
