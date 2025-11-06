@@ -78,14 +78,13 @@ function LaporanContent() {
     
     let stockInQuery = supabase
       .from("stock_in")
-      .select("product_id, variant, qty, user_id, products(name, user_id), profiles!stock_in_user_id_fkey(name)")
+      .select("product_id, variant, qty, user_id, products(name, user_id)")
       .gte("created_at", dateRange.from.toISOString())
-      .lte("created_at", dateRange.to.toISOString())
-      .limit(10);
+      .lte("created_at", dateRange.to.toISOString());
 
     let stockOutQuery = supabase
       .from("stock_out")
-      .select("product_id, variant, qty, user_id")
+      .select("product_id, variant, qty, user_id, products(name, user_id)")
       .gte("created_at", dateRange.from.toISOString())
       .lte("created_at", dateRange.to.toISOString());
 
@@ -114,16 +113,22 @@ function LaporanContent() {
         stock_in: 0,
         stock_out: 0,
         user_id: item.user_id,
+        product_id: item.product_id,
       };
       stockMap.set(key, { ...current, stock_in: current.stock_in + item.qty });
     });
 
     stockOut?.forEach((item: any) => {
       const key = `${item.product_id}-${item.variant || "null"}`;
-      const current = stockMap.get(key);
-      if (current) {
-        stockMap.set(key, { ...current, stock_out: current.stock_out + item.qty });
-      }
+      const current = stockMap.get(key) || { 
+        product_name: item.products?.name || "", 
+        variant: item.variant,
+        stock_in: 0,
+        stock_out: 0,
+        user_id: item.user_id,
+        product_id: item.product_id,
+      };
+      stockMap.set(key, { ...current, stock_out: current.stock_out + item.qty });
     });
 
     const previewData = Array.from(stockMap.entries())
