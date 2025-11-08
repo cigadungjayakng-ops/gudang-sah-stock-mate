@@ -159,13 +159,19 @@ function OpnameStokContent() {
     // Update actual stock by creating stock_in or stock_out entry
     if (qty_difference !== 0) {
       if (qty_difference > 0) {
-        // Stock increased - create stock_in entry
+        // Stock increased - create stock_in entry with "Opname Stok" type
+        const { data: opnameType } = await supabase
+          .from("jenis_stok_masuk")
+          .select("id")
+          .eq("name", "Opname Stok")
+          .single();
+
         const { error: stockInError } = await supabase.from("stock_in").insert({
           user_id: user.id,
           product_id: formData.product_id,
           variant: hasVariants ? formData.variant : null,
           qty: Math.abs(qty_difference),
-          jenis_stok_masuk_id: (await supabase.from("jenis_stok_masuk").select("id").limit(1).single()).data?.id,
+          jenis_stok_masuk_id: opnameType?.id,
           keterangan: `Penyesuaian stok dari opname: ${formData.reason}`,
         });
 
@@ -173,13 +179,19 @@ function OpnameStokContent() {
           toast({ title: "Warning", description: "Opname recorded but stock adjustment failed", variant: "destructive" });
         }
       } else {
-        // Stock decreased - create stock_out entry
+        // Stock decreased - create stock_out entry with "Opname Stok" type
+        const { data: opnameType } = await supabase
+          .from("jenis_stok_keluar")
+          .select("id")
+          .eq("name", "Opname Stok")
+          .single();
+
         const { error: stockOutError } = await supabase.from("stock_out").insert({
           user_id: user.id,
           product_id: formData.product_id,
           variant: hasVariants ? formData.variant : null,
           qty: Math.abs(qty_difference),
-          jenis_stok_keluar_id: (await supabase.from("jenis_stok_keluar").select("id").limit(1).single()).data?.id,
+          jenis_stok_keluar_id: opnameType?.id,
           tujuan_category: "SAJ_PUSAT",
           keterangan: `Penyesuaian stok dari opname: ${formData.reason}`,
         });

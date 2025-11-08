@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, ExternalLink } from "lucide-react";
+import { CalendarIcon, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -64,6 +64,9 @@ function PergerakanStokContent() {
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [loading, setLoading] = useState(false);
   const [detailDialog, setDetailDialog] = useState<{ type: "in" | "out"; details: StockDetail[] } | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 20;
 
   useEffect(() => {
     fetchProducts();
@@ -105,8 +108,11 @@ function PergerakanStokContent() {
 
     try {
       const movementsData: StockMovement[] = [];
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+      const paginatedProducts = products.slice(from, to + 1);
 
-      for (const product of products) {
+      for (const product of paginatedProducts) {
         const productVariants = Array.isArray(product.variants) && product.variants.length > 0 
           ? product.variants 
           : [null];
@@ -189,6 +195,7 @@ function PergerakanStokContent() {
       }
 
       setMovements(movementsData);
+      setTotalCount(products.length);
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
@@ -291,6 +298,7 @@ function PergerakanStokContent() {
       }
 
       setMovements(movementsData);
+      setTotalCount(movementsData.length);
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
@@ -300,6 +308,7 @@ function PergerakanStokContent() {
 
   const selectedProductData = products.find((p) => p.id === selectedProduct);
   const hasVariants = selectedProduct !== "all" && selectedProductData?.variants && selectedProductData.variants.length > 0;
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   return (
     <div className="space-y-6">
@@ -448,6 +457,34 @@ function PergerakanStokContent() {
           </TableBody>
         </Table>
       </Card>
+
+      {totalPages > 1 && selectedProduct === "all" && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Total {totalCount} produk - Halaman {currentPage} dari {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Sebelumnya
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+            >
+              Berikutnya
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Dialog open={!!detailDialog} onOpenChange={() => setDetailDialog(null)}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
