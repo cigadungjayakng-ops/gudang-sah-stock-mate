@@ -164,19 +164,24 @@ function OpnameStokContent() {
           .from("jenis_stok_masuk")
           .select("id")
           .eq("name", "Opname Stok")
-          .single();
+          .maybeSingle();
+
+        if (!opnameType) {
+          toast({ title: "Warning", description: "Jenis 'Opname Stok' tidak ditemukan di jenis stok masuk", variant: "destructive" });
+          return;
+        }
 
         const { error: stockInError } = await supabase.from("stock_in").insert({
           user_id: user.id,
           product_id: formData.product_id,
           variant: hasVariants ? formData.variant : null,
           qty: Math.abs(qty_difference),
-          jenis_stok_masuk_id: opnameType?.id,
+          jenis_stok_masuk_id: opnameType.id,
           keterangan: `Penyesuaian stok dari opname: ${formData.reason}`,
         });
 
         if (stockInError) {
-          toast({ title: "Warning", description: "Opname recorded but stock adjustment failed", variant: "destructive" });
+          toast({ title: "Warning", description: "Opname recorded but stock adjustment failed: " + stockInError.message, variant: "destructive" });
         }
       } else {
         // Stock decreased - create stock_out entry with "Opname Stok" type
@@ -184,20 +189,25 @@ function OpnameStokContent() {
           .from("jenis_stok_keluar")
           .select("id")
           .eq("name", "Opname Stok")
-          .single();
+          .maybeSingle();
+
+        if (!opnameType) {
+          toast({ title: "Warning", description: "Jenis 'Opname Stok' tidak ditemukan di jenis stok keluar", variant: "destructive" });
+          return;
+        }
 
         const { error: stockOutError } = await supabase.from("stock_out").insert({
           user_id: user.id,
           product_id: formData.product_id,
           variant: hasVariants ? formData.variant : null,
           qty: Math.abs(qty_difference),
-          jenis_stok_keluar_id: opnameType?.id,
+          jenis_stok_keluar_id: opnameType.id,
           tujuan_category: "SAJ_PUSAT",
           keterangan: `Penyesuaian stok dari opname: ${formData.reason}`,
         });
 
         if (stockOutError) {
-          toast({ title: "Warning", description: "Opname recorded but stock adjustment failed", variant: "destructive" });
+          toast({ title: "Warning", description: "Opname recorded but stock adjustment failed: " + stockOutError.message, variant: "destructive" });
         }
       }
     }
