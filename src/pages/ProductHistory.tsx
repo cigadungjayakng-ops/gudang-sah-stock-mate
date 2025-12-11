@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -39,12 +39,19 @@ function ProductHistoryContent() {
   const [selectedVariant, setSelectedVariant] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState<Date>(new Date());
   const [dateTo, setDateTo] = useState<Date>(new Date());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedVariant, dateFrom, dateTo]);
 
   useEffect(() => {
     if (productId) {
       fetchProductAndHistory();
     }
-  }, [productId, selectedVariant, dateFrom, dateTo]);
+  }, [productId, selectedVariant, dateFrom, dateTo, currentPage]);
 
   const fetchProductAndHistory = async () => {
     if (!productId || !user) return;
@@ -54,7 +61,7 @@ function ProductHistoryContent() {
       .from("products")
       .select("*")
       .eq("id", productId)
-      .single();
+      .maybeSingle();
 
     if (productData) {
       setProduct(productData);
@@ -96,31 +103,64 @@ function ProductHistoryContent() {
 
     const { data: stockOutData } = await stockOutQuery;
 
-    // Get stock before date range
-    const { data: stockBeforeIn } = await supabase
+    // Get stock before date range - grouped by variant
+    let stockBeforeInQuery = supabase
       .from("stock_in")
       .select("qty, variant")
       .eq("product_id", productId)
       .lt("created_at", format(dateFrom, "yyyy-MM-dd"));
     
-    const { data: stockBeforeOut } = await supabase
+    let stockBeforeOutQuery = supabase
       .from("stock_out")
       .select("qty, variant")
       .eq("product_id", productId)
       .lt("created_at", format(dateFrom, "yyyy-MM-dd"));
 
-    // Combine and calculate running stock
+    if (userRole === "user") {
+      stockBeforeInQuery = stockBeforeInQuery.eq("user_id", user.id);
+      stockBeforeOutQuery = stockBeforeOutQuery.eq("user_id", user.id);
+    }
+
+    if (selectedVariant !== "all") {
+      stockBeforeInQuery = stockBeforeInQuery.eq("variant", selectedVariant);
+      stockBeforeOutQuery = stockBeforeOutQuery.eq("variant", selectedVariant);
+    }
+
+    const { data: stockBeforeIn } = await stockBeforeInQuery;
+    const { data: stockBeforeOut } = await stockBeforeOutQuery;
+
+    // Calculate initial stock per variant
+    const initialStockByVariant: Record<string, number> = {};
+    
+    stockBeforeIn?.forEach((item: any) => {
+      const variantKey = item.variant || "_no_variant_";
+      initialStockByVariant[variantKey] = (initialStockByVariant[variantKey] || 0) + item.qty;
+    });
+    
+    stockBeforeOut?.forEach((item: any) => {
+      const variantKey = item.variant || "_no_variant_";
+      initialStockByVariant[variantKey] = (initialStockByVariant[variantKey] || 0) - item.qty;
+    });
+
+    // Combine and sort by date
     const allItems = [
       ...(stockInData || []).map((item: any) => ({ ...item, type: "IN" as const })),
       ...(stockOutData || []).map((item: any) => ({ ...item, type: "OUT" as const })),
     ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
-    let runningStock = (stockBeforeIn?.reduce((sum, i: any) => sum + i.qty, 0) || 0) - 
-                       (stockBeforeOut?.reduce((sum, i: any) => sum + i.qty, 0) || 0);
+    // Calculate running stock per variant
+    const runningStockByVariant: Record<string, number> = { ...initialStockByVariant };
 
     const combined: HistoryItem[] = allItems.map((item: any) => {
-      const stok_awal = runningStock;
-      runningStock += item.type === "IN" ? item.qty : -item.qty;
+      const variantKey = item.variant || "_no_variant_";
+      const stok_awal = runningStockByVariant[variantKey] || 0;
+      
+      if (item.type === "IN") {
+        runningStockByVariant[variantKey] = stok_awal + item.qty;
+      } else {
+        runningStockByVariant[variantKey] = stok_awal - item.qty;
+      }
+
       return {
         id: item.id,
         created_at: item.created_at,
@@ -128,18 +168,27 @@ function ProductHistoryContent() {
         variant: item.variant,
         stok_awal,
         qty: item.qty,
-        sisa_stok: runningStock,
+        sisa_stok: runningStockByVariant[variantKey],
         jenis: item.type === "IN" ? item.jenis_stok_masuk?.name || "-" : item.jenis_stok_keluar?.name || "-",
         keterangan: item.keterangan,
       };
     });
 
     combined.reverse();
-    setHistory(combined);
+    
+    // Set total count for pagination
+    setTotalCount(combined.length);
+    
+    // Apply pagination
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const paginatedHistory = combined.slice(startIndex, startIndex + itemsPerPage);
+    
+    setHistory(paginatedHistory);
     setLoading(false);
   };
 
   const variants = product?.variants || [];
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   return (
     <div className="space-y-6">
@@ -255,6 +304,35 @@ function ProductHistoryContent() {
             )}
           </TableBody>
         </Table>
+        
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t">
+            <div className="text-sm text-muted-foreground">
+              Halaman {currentPage} dari {totalPages} ({totalCount} data)
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Sebelumnya
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Berikutnya
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );
