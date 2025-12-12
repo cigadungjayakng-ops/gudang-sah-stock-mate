@@ -203,23 +203,25 @@ function ProductHistoryContent() {
       </div>
 
       <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label>Varian</Label>
-            <Select value={selectedVariant} onValueChange={setSelectedVariant}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Semua Varian</SelectItem>
-                {variants.map((variant: string, idx: number) => (
-                  <SelectItem key={idx} value={variant}>
-                    {variant}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className={`grid grid-cols-1 gap-4 ${variants.length > 0 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+          {variants.length > 0 && (
+            <div className="space-y-2">
+              <Label>Varian</Label>
+              <Select value={selectedVariant} onValueChange={setSelectedVariant}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Varian</SelectItem>
+                  {variants.map((variant: string, idx: number) => (
+                    <SelectItem key={idx} value={variant}>
+                      {variant}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Dari Tanggal</Label>
