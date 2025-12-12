@@ -339,6 +339,43 @@ function OpnameStokContent() {
         )}
       </Card>
 
+      {/* Summary Card */}
+      {opnameRecords.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="p-4">
+            <p className="text-sm text-muted-foreground">Total Selisih Positif</p>
+            <p className="text-2xl font-bold text-primary">
+              +{opnameRecords.filter(r => r.qty_difference > 0).reduce((sum, r) => sum + r.qty_difference, 0)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {opnameRecords.filter(r => r.qty_difference > 0).length} transaksi
+            </p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-sm text-muted-foreground">Total Selisih Negatif</p>
+            <p className="text-2xl font-bold text-destructive">
+              {opnameRecords.filter(r => r.qty_difference < 0).reduce((sum, r) => sum + r.qty_difference, 0)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {opnameRecords.filter(r => r.qty_difference < 0).length} transaksi
+            </p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-sm text-muted-foreground">Total Selisih Bersih</p>
+            <p className={cn(
+              "text-2xl font-bold",
+              opnameRecords.reduce((sum, r) => sum + r.qty_difference, 0) >= 0 ? "text-primary" : "text-destructive"
+            )}>
+              {opnameRecords.reduce((sum, r) => sum + r.qty_difference, 0) > 0 ? "+" : ""}
+              {opnameRecords.reduce((sum, r) => sum + r.qty_difference, 0)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {opnameRecords.length} transaksi total
+            </p>
+          </Card>
+        </div>
+      )}
+
       <Card className="shadow-sm">
         <Table>
           <TableHeader>
