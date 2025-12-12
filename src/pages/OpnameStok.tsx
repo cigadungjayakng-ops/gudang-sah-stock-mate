@@ -57,6 +57,7 @@ function OpnameStokContent() {
   const [showDialog, setShowDialog] = useState(false);
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  const [filterProductId, setFilterProductId] = useState<string>("all");
   const [formData, setFormData] = useState<OpnameFormData>({
     product_id: "",
     variant: "",
@@ -77,11 +78,11 @@ function OpnameStokContent() {
   useEffect(() => {
     fetchProducts();
     fetchOpnameRecords();
-  }, [user, currentPage, dateFrom, dateTo]);
+  }, [user, currentPage, dateFrom, dateTo, filterProductId]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, filterProductId]);
 
   const fetchProducts = async () => {
     if (!user) return;
@@ -121,6 +122,10 @@ function OpnameStokContent() {
     }
     if (dateTo) {
       query = query.lte("created_at", format(dateTo, "yyyy-MM-dd") + "T23:59:59");
+    }
+    // Apply product filter
+    if (filterProductId && filterProductId !== "all") {
+      query = query.eq("product_id", filterProductId);
     }
 
     const { data, error, count } = await query
@@ -254,7 +259,22 @@ function OpnameStokContent() {
 
       {/* Filter Card */}
       <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>Produk</Label>
+            <Combobox
+              options={[
+                { value: "all", label: "Semua Produk" },
+                ...products.map((p) => ({ value: p.id, label: p.name }))
+              ]}
+              value={filterProductId}
+              onValueChange={setFilterProductId}
+              placeholder="Pilih produk"
+              searchPlaceholder="Cari produk..."
+              emptyText="Produk tidak ditemukan"
+            />
+          </div>
+
           <div className="space-y-2">
             <Label>Dari Tanggal</Label>
             <Popover>
@@ -302,7 +322,7 @@ function OpnameStokContent() {
           </div>
         </div>
         
-        {(dateFrom || dateTo) && (
+        {(dateFrom || dateTo || filterProductId !== "all") && (
           <div className="mt-3">
             <Button 
               variant="ghost" 
@@ -310,6 +330,7 @@ function OpnameStokContent() {
               onClick={() => {
                 setDateFrom(undefined);
                 setDateTo(undefined);
+                setFilterProductId("all");
               }}
             >
               Reset Filter
