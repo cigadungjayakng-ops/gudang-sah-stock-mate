@@ -44,7 +44,7 @@ export function BulkStockInForm({ products, jenisStokMasuk, cabang, userId, onSu
     setJenisStokMasukId(value);
     const selectedJenis = jenisStokMasuk.find(j => j.id === value);
     setSelectedJenisName(selectedJenis?.name || "");
-    if (selectedJenis?.name !== "RETUR CABANG") {
+    if (selectedJenis?.name !== "RETUR CABANG" && selectedJenis?.name !== "MINTA BARANG (CABANG)") {
       setCabangId("");
     }
   };
