@@ -82,8 +82,8 @@ export function BulkStockInForm({ products, jenisStokMasuk, cabang, userId, onSu
       return;
     }
 
-    if (selectedJenisName === "RETUR CABANG" && !cabangId) {
-      toast({ title: "Error", description: "Pilih cabang untuk RETUR CABANG", variant: "destructive" });
+    if ((selectedJenisName === "RETUR CABANG" || selectedJenisName === "MINTA BARANG (CABANG)") && !cabangId) {
+      toast({ title: "Error", description: "Pilih cabang", variant: "destructive" });
       return;
     }
 
