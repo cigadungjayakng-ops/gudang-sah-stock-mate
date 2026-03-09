@@ -161,7 +161,7 @@ export function BulkStockInForm({ products, jenisStokMasuk, cabang, userId, onSu
               </SelectContent>
             </Select>
           </div>
-          {selectedJenisName === "RETUR CABANG" && (
+          {(selectedJenisName === "RETUR CABANG" || selectedJenisName === "MINTA BARANG (CABANG)") && (
             <div className="space-y-2">
               <Label>Cabang *</Label>
               <Select value={cabangId} onValueChange={setCabangId}>
