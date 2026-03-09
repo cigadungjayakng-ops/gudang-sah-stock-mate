@@ -44,7 +44,7 @@ export function BulkStockInForm({ products, jenisStokMasuk, cabang, userId, onSu
     setJenisStokMasukId(value);
     const selectedJenis = jenisStokMasuk.find(j => j.id === value);
     setSelectedJenisName(selectedJenis?.name || "");
-    if (selectedJenis?.name !== "RETUR CABANG") {
+    if (selectedJenis?.name !== "RETUR CABANG" && selectedJenis?.name !== "MINTA BARANG (CABANG)") {
       setCabangId("");
     }
   };
@@ -82,8 +82,8 @@ export function BulkStockInForm({ products, jenisStokMasuk, cabang, userId, onSu
       return;
     }
 
-    if (selectedJenisName === "RETUR CABANG" && !cabangId) {
-      toast({ title: "Error", description: "Pilih cabang untuk RETUR CABANG", variant: "destructive" });
+    if ((selectedJenisName === "RETUR CABANG" || selectedJenisName === "MINTA BARANG (CABANG)") && !cabangId) {
+      toast({ title: "Error", description: "Pilih cabang", variant: "destructive" });
       return;
     }
 
@@ -161,7 +161,7 @@ export function BulkStockInForm({ products, jenisStokMasuk, cabang, userId, onSu
               </SelectContent>
             </Select>
           </div>
-          {selectedJenisName === "RETUR CABANG" && (
+          {(selectedJenisName === "RETUR CABANG" || selectedJenisName === "MINTA BARANG (CABANG)") && (
             <div className="space-y-2">
               <Label>Cabang *</Label>
               <Select value={cabangId} onValueChange={setCabangId}>
