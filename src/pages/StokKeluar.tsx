@@ -12,8 +12,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Plus, AlertTriangle, Eye, Search, ChevronLeft, ChevronRight, X, CalendarIcon, List } from "lucide-react";
+import { Plus, AlertTriangle, Eye, Search, ChevronLeft, ChevronRight, X, CalendarIcon, List, Pencil } from "lucide-react";
 import { BulkStockOutForm } from "@/components/BulkStockOutForm";
+import { EditStockDialog } from "@/components/EditStockDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -40,6 +41,7 @@ interface StockOutFormData {
 function StokKeluarContent() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailDialog, setDetailDialog] = useState<any>(null);
+  const [editRecord, setEditRecord] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [jenisStokKeluar, setJenisStokKeluar] = useState<any[]>([]);
   const [cabang, setCabang] = useState<any[]>([]);
@@ -432,6 +434,11 @@ function StokKeluarContent() {
                     <Button variant="ghost" size="icon" onClick={() => setDetailDialog(item)}>
                       <Eye className="h-4 w-4" />
                     </Button>
+                    {userRole === "superadmin" && (
+                      <Button variant="ghost" size="icon" onClick={() => setEditRecord(item)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))
@@ -559,6 +566,14 @@ function StokKeluarContent() {
           )}
         </DialogContent>
       </Dialog>
+      <EditStockDialog
+        type="out"
+        record={editRecord}
+        jenisList={jenisStokKeluar}
+        cabang={cabang}
+        onClose={() => setEditRecord(null)}
+        onSaved={fetchStockOutData}
+      />
     </div>
   );
 }
