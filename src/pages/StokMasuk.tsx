@@ -433,6 +433,11 @@ function StokMasukContent() {
                     <Button variant="ghost" size="icon" onClick={() => setDetailDialog(item)}>
                       <Eye className="h-4 w-4" />
                     </Button>
+                    {userRole === "superadmin" && (
+                      <Button variant="ghost" size="icon" onClick={() => setEditRecord(item)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))
