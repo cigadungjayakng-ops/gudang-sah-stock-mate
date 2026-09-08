@@ -572,6 +572,14 @@ function StokMasukContent() {
           )}
         </DialogContent>
       </Dialog>
+      <EditStockDialog
+        type="in"
+        record={editRecord}
+        jenisList={jenisStokMasuk}
+        cabang={cabang}
+        onClose={() => setEditRecord(null)}
+        onSaved={fetchStockInData}
+      />
     </div>
   );
 }

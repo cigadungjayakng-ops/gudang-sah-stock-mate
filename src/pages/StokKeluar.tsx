@@ -566,6 +566,14 @@ function StokKeluarContent() {
           )}
         </DialogContent>
       </Dialog>
+      <EditStockDialog
+        type="out"
+        record={editRecord}
+        jenisList={jenisStokKeluar}
+        cabang={cabang}
+        onClose={() => setEditRecord(null)}
+        onSaved={fetchStockOutData}
+      />
     </div>
   );
 }
