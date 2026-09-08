@@ -69,8 +69,8 @@ function PergerakanStokContent() {
   const itemsPerPage = 20;
 
   useEffect(() => {
-    fetchProducts();
-  }, [user]);
+    if (user?.id) fetchProducts();
+  }, [user?.id]);
 
   useEffect(() => {
     if (products.length > 0) {
@@ -95,9 +95,6 @@ function PergerakanStokContent() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       setProducts(data || []);
-      if (data && data.length > 0) {
-        setSelectedProduct("all");
-      }
     }
   };
 
@@ -327,7 +324,11 @@ function PergerakanStokContent() {
                 ...products.map((p) => ({ value: p.id, label: p.name }))
               ]}
               value={selectedProduct}
-              onValueChange={setSelectedProduct}
+              onValueChange={(v) => {
+                setSelectedProduct(v || "all");
+                setSelectedVariant("all");
+                setCurrentPage(1);
+              }}
               placeholder="Pilih produk"
               searchPlaceholder="Cari produk..."
               emptyText="Produk tidak ditemukan"
