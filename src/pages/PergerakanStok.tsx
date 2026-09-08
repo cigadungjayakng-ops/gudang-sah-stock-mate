@@ -338,7 +338,7 @@ function PergerakanStokContent() {
           {hasVariants && (
             <div className="space-y-2">
               <Label>Varian</Label>
-              <Select value={selectedVariant} onValueChange={setSelectedVariant}>
+              <Select value={selectedVariant} onValueChange={(v) => { setSelectedVariant(v); setCurrentPage(1); }}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -371,6 +371,7 @@ function PergerakanStokContent() {
                   selected={{ from: dateRange.from, to: dateRange.to }}
                   onSelect={(range) => {
                     if (range?.from) {
+                      setCurrentPage(1);
                       setDateRange({
                         from: new Date(range.from.setHours(0, 0, 0, 0)),
                         to: range.to ? new Date(range.to.setHours(23, 59, 59, 999)) : new Date(range.from.setHours(23, 59, 59, 999)),
