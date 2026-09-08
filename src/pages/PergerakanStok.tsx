@@ -69,8 +69,8 @@ function PergerakanStokContent() {
   const itemsPerPage = 20;
 
   useEffect(() => {
-    fetchProducts();
-  }, [user]);
+    if (user?.id) fetchProducts();
+  }, [user?.id]);
 
   useEffect(() => {
     if (products.length > 0) {
@@ -95,9 +95,6 @@ function PergerakanStokContent() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       setProducts(data || []);
-      if (data && data.length > 0) {
-        setSelectedProduct("all");
-      }
     }
   };
 
@@ -327,7 +324,11 @@ function PergerakanStokContent() {
                 ...products.map((p) => ({ value: p.id, label: p.name }))
               ]}
               value={selectedProduct}
-              onValueChange={setSelectedProduct}
+              onValueChange={(v) => {
+                setSelectedProduct(v || "all");
+                setSelectedVariant("all");
+                setCurrentPage(1);
+              }}
               placeholder="Pilih produk"
               searchPlaceholder="Cari produk..."
               emptyText="Produk tidak ditemukan"
@@ -337,7 +338,7 @@ function PergerakanStokContent() {
           {hasVariants && (
             <div className="space-y-2">
               <Label>Varian</Label>
-              <Select value={selectedVariant} onValueChange={setSelectedVariant}>
+              <Select value={selectedVariant} onValueChange={(v) => { setSelectedVariant(v); setCurrentPage(1); }}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -370,6 +371,7 @@ function PergerakanStokContent() {
                   selected={{ from: dateRange.from, to: dateRange.to }}
                   onSelect={(range) => {
                     if (range?.from) {
+                      setCurrentPage(1);
                       setDateRange({
                         from: new Date(range.from.setHours(0, 0, 0, 0)),
                         to: range.to ? new Date(range.to.setHours(23, 59, 59, 999)) : new Date(range.from.setHours(23, 59, 59, 999)),
