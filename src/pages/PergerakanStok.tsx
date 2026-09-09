@@ -55,19 +55,38 @@ interface StockDetail {
 
 function PergerakanStokContent() {
   const { user, userRole } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const parseDateParam = (key: string, fallback: Date) => {
+    const raw = searchParams.get(key);
+    if (!raw) return fallback;
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? fallback : d;
+  };
+
   const [products, setProducts] = useState<Product[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState<string>("all");
-  const [selectedVariant, setSelectedVariant] = useState<string>("all");
-  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
-    from: new Date(new Date().setHours(0, 0, 0, 0)),
-    to: new Date(new Date().setHours(23, 59, 59, 999)),
-  });
+  const [selectedProduct, setSelectedProduct] = useState<string>(() => searchParams.get("produk") || "all");
+  const [selectedVariant, setSelectedVariant] = useState<string>(() => searchParams.get("varian") || "all");
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => ({
+    from: parseDateParam("dari", new Date(new Date().setHours(0, 0, 0, 0))),
+    to: parseDateParam("sampai", new Date(new Date().setHours(23, 59, 59, 999))),
+  }));
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [loading, setLoading] = useState(false);
   const [detailDialog, setDetailDialog] = useState<{ type: "in" | "out"; details: StockDetail[] } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const itemsPerPage = 20;
+
+  // Sinkronkan filter ke URL agar filter tetap bertahan (tidak reset saat overlay ditutup / re-render)
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (selectedProduct !== "all") params.set("produk", selectedProduct);
+    if (selectedVariant !== "all") params.set("varian", selectedVariant);
+    params.set("dari", format(dateRange.from, "yyyy-MM-dd"));
+    params.set("sampai", format(dateRange.to, "yyyy-MM-dd"));
+    setSearchParams(params, { replace: true });
+  }, [selectedProduct, selectedVariant, dateRange, setSearchParams]);
 
   useEffect(() => {
     if (user?.id) fetchProducts();
