@@ -65,9 +65,14 @@ export function EditStockDialog({ type, record, jenisList, cabang, onClose, onSa
       toast({ title: "Jenis wajib dipilih", variant: "destructive" });
       return;
     }
+    if (!form.product_id) {
+      toast({ title: "Produk wajib dipilih", variant: "destructive" });
+      return;
+    }
 
     setSaving(true);
     const payload: any = {
+      product_id: form.product_id,
       variant: form.variant || null,
       qty,
       [jenisField]: form[jenisField],
