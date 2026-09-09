@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { toast } from "@/hooks/use-toast";
 
 interface EditStockDialogProps {
@@ -21,11 +22,22 @@ export function EditStockDialog({ type, record, jenisList, cabang, onClose, onSa
   const isIn = type === "in";
   const jenisField = isIn ? "jenis_stok_masuk_id" : "jenis_stok_keluar_id";
   const [saving, setSaving] = useState(false);
+  const [products, setProducts] = useState<any[]>([]);
   const [form, setForm] = useState<any>({});
 
   useEffect(() => {
     if (!record) return;
+    supabase
+      .from("products")
+      .select("id, name, variants")
+      .order("name")
+      .then(({ data }) => setProducts(data || []));
+  }, [record]);
+
+  useEffect(() => {
+    if (!record) return;
     setForm({
+      product_id: record.product_id ?? "",
       variant: record.variant ?? "",
       qty: String(record.qty ?? ""),
       [jenisField]: record[jenisField] ?? "",
@@ -53,9 +65,14 @@ export function EditStockDialog({ type, record, jenisList, cabang, onClose, onSa
       toast({ title: "Jenis wajib dipilih", variant: "destructive" });
       return;
     }
+    if (!form.product_id) {
+      toast({ title: "Produk wajib dipilih", variant: "destructive" });
+      return;
+    }
 
     setSaving(true);
     const payload: any = {
+      product_id: form.product_id,
       variant: form.variant || null,
       qty,
       [jenisField]: form[jenisField],
@@ -98,12 +115,36 @@ export function EditStockDialog({ type, record, jenisList, cabang, onClose, onSa
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <Label>Produk</Label>
-              <Input value={record.products?.name || "-"} disabled />
+              <Combobox
+                options={products.map((p) => ({ value: p.id, label: p.name }))}
+                value={form.product_id}
+                onValueChange={(v) => setForm((prev: any) => ({ ...prev, product_id: v || prev.product_id, variant: v && v !== prev.product_id ? "" : prev.variant }))}
+                placeholder={record.products?.name || "Pilih produk"}
+                searchPlaceholder="Cari produk..."
+                emptyText="Produk tidak ditemukan"
+              />
             </div>
 
             <div>
               <Label>Varian</Label>
-              <Input value={form.variant} onChange={(e) => set("variant", e.target.value)} placeholder="-" />
+              {(() => {
+                const variants: string[] = products.find((p) => p.id === form.product_id)?.variants || [];
+                return variants.length > 0 ? (
+                  <Select value={form.variant || "none"} onValueChange={(v) => set("variant", v === "none" ? "" : v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih varian" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Tanpa varian</SelectItem>
+                      {variants.map((v) => (
+                        <SelectItem key={v} value={v}>{v}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input value={form.variant} onChange={(e) => set("variant", e.target.value)} placeholder="-" />
+                );
+              })()}
             </div>
 
             <div>
