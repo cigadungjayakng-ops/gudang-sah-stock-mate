@@ -22,11 +22,22 @@ export function EditStockDialog({ type, record, jenisList, cabang, onClose, onSa
   const isIn = type === "in";
   const jenisField = isIn ? "jenis_stok_masuk_id" : "jenis_stok_keluar_id";
   const [saving, setSaving] = useState(false);
+  const [products, setProducts] = useState<any[]>([]);
   const [form, setForm] = useState<any>({});
 
   useEffect(() => {
     if (!record) return;
+    supabase
+      .from("products")
+      .select("id, name, variants")
+      .order("name")
+      .then(({ data }) => setProducts(data || []));
+  }, [record]);
+
+  useEffect(() => {
+    if (!record) return;
     setForm({
+      product_id: record.product_id ?? "",
       variant: record.variant ?? "",
       qty: String(record.qty ?? ""),
       [jenisField]: record[jenisField] ?? "",
